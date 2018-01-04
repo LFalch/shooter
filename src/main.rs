@@ -1,13 +1,17 @@
+#[macro_use]
+extern crate lazy_static;
 extern crate ggez;
 
 // use ggez::audio;
 use ggez::conf;
 use ggez::event::*;
 use ggez::{Context, ContextBuilder, GameResult};
-use ggez::graphics;
 use ggez::timer;
-use ggez::graphics::{Vector2, Point2};
+use ggez::graphics::{self, Vector2, Point2};
 use ggez::nalgebra as na;
+
+mod obj;
+use obj::*;
 
 struct Assets {
     ship: graphics::Image,
@@ -15,7 +19,7 @@ struct Assets {
 
 impl Assets {
     fn new(ctx: &mut Context) -> GameResult<Self> {
-        let ship = graphics::Image::new(ctx, "ship.png")?;
+        let ship = graphics::Image::new(ctx, "/ship.png")?;
 
         Ok(Assets {
             ship
@@ -27,19 +31,23 @@ struct State {
     assets: Assets,
     width: u32,
     height: u32,
+    player: Obj,
 }
 
 impl State {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         ctx.print_resource_stats();
-       graphics::set_background_color(ctx, (0, 0, 0, 255).into());
-
-       println!("Game resource path: {:?}", ctx.filesystem);
+        graphics::set_background_color(ctx, (0, 0, 0, 255).into());
+        let assets = Assets::new(ctx)?;
 
         Ok(State {
-            assets: Assets::new(ctx)?,
+            assets,
             width: ctx.conf.window_mode.width,
             height: ctx.conf.window_mode.height,
+            player: Obj {
+                pos: Point2::new(0., 0.),
+                rot: 0.,
+            }
         })
     }
 }
@@ -60,18 +68,10 @@ impl EventHandler for State {
         // Just clear the screen...
         graphics::clear(ctx);
 
+        self.player.draw(ctx, &self.assets)?;
+
         // Then we flip the screen...
         graphics::present(ctx);
-
-        let pos = Point2::new(0., 0.);
-        let image = &self.assets.ship;
-        let drawparams = graphics::DrawParam {
-            dest: pos,
-            rotation: 0.,
-            offset: graphics::Point2::new(0.5, 0.5),
-            .. Default::default()
-        };
-        graphics::draw_ex(ctx, image, drawparams)?;
 
         // And yield the timeslice
         // This tells the OS that we're done using the CPU but it should
@@ -85,12 +85,16 @@ impl EventHandler for State {
 }
 
 fn main() {
-    let cb = ContextBuilder::new("shooter", "LFalch")
+    let mut ctx = ContextBuilder::new("shooter", "LFalch")
         .window_setup(conf::WindowSetup::default().title("Shooter"))
-        .window_mode(conf::WindowMode::default().dimensions(800, 600));
-        // .add_resource_path("res");
+        .window_mode(conf::WindowMode::default().dimensions(800, 600))
+        .build().unwrap();
 
-    let mut ctx = cb.build().unwrap();
+    if let Ok(manifest_dir) = ::std::env::var("CARGO_MANIFEST_DIR") {
+        let mut path = ::std::path::PathBuf::from(manifest_dir);
+        path.push("resources");
+        ctx.filesystem.mount(&path, true);
+    }
 
     match State::new(&mut ctx) {
         Err(e) => {
