@@ -7,31 +7,29 @@ use ggez::conf;
 use ggez::event::*;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::timer;
-use ggez::graphics::{self, Vector2, Point2};
-use ggez::nalgebra as na;
+use ggez::graphics::{self, Vector2, Point2, Text};
 
 mod obj;
 use obj::*;
+mod tex;
+use tex::*;
 
-struct Assets {
-    ship: graphics::Image,
-}
-
-impl Assets {
-    fn new(ctx: &mut Context) -> GameResult<Self> {
-        let ship = graphics::Image::new(ctx, "/ship.png")?;
-
-        Ok(Assets {
-            ship
-        })
-    }
+#[derive(Debug, Default)]
+struct InputState {
+    hor: f32,
+    ver: f32,
 }
 
 struct State {
+    input: InputState,
     assets: Assets,
     width: u32,
     height: u32,
-    player: Obj,
+    player: PhysObj,
+    input_state_text: Text,
+    vel_text: Text,
+    pos_text: Text,
+    acc_text: Text,
 }
 
 impl State {
@@ -40,16 +38,40 @@ impl State {
         graphics::set_background_color(ctx, (0, 0, 0, 255).into());
         let assets = Assets::new(ctx)?;
 
+        let input_state_text = Text::new(ctx, "hor: 0, ver: 0", &assets.font)?;
+        let pos_text = Text::new(ctx, "Pos: (0.00, 0.00)", &assets.font)?;
+        let vel_text = Text::new(ctx, "Vel: (0.00, 0.00)", &assets.font)?;
+        let acc_text = Text::new(ctx, "Acc: (0.00, 0.00)", &assets.font)?;
+        let width = ctx.conf.window_mode.width;
+        let height = ctx.conf.window_mode.height;
+
         Ok(State {
+            input: Default::default(),
             assets,
-            width: ctx.conf.window_mode.width,
-            height: ctx.conf.window_mode.height,
-            player: Obj {
-                pos: Point2::new(0., 0.),
-                rot: 0.,
-            }
+            width,
+            height,
+            input_state_text,
+            pos_text,
+            vel_text,
+            acc_text,
+            player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::Ship)
         })
     }
+    fn update_ui(&mut self, ctx: &mut Context) {
+        let pos_str = format!("Pos: ({:7.2}, {:7.2})", self.player.obj.pos.x, self.player.obj.pos.y);
+        let vel_str = format!("Vel: ({:7.2}, {:7.2})", self.player.vel.x, self.player.vel.y);
+        let acc_str = format!("Acc: ({:7.2}, {:7.2})", self.player.acc.x, self.player.acc.y);
+        let is_str = format!("hor: {}, ver: {}", self.input.hor, self.input.ver);
+        self.pos_text = Text::new(ctx, &pos_str, &self.assets.font).unwrap();
+        self.vel_text = Text::new(ctx, &vel_str, &self.assets.font).unwrap();
+        self.acc_text = Text::new(ctx, &acc_str, &self.assets.font).unwrap();
+        self.input_state_text = Text::new(ctx, &is_str, &self.assets.font).unwrap();
+    }
+}
+
+fn angle_to_vec(angle: f32) -> Vector2 {
+    let (sin, cos) = angle.sin_cos();
+    Vector2::new(sin, -cos)
 }
 
 impl EventHandler for State {
@@ -57,8 +79,15 @@ impl EventHandler for State {
         const DESIRED_FPS: u32 = 60;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
+            const DELTA: f32 = 1. / DESIRED_FPS as f32;
 
+            self.player.obj.rot += 1.7 * self.input.hor * DELTA;
+            self.player.acc = 50. * angle_to_vec(self.player.obj.rot) * self.input.ver;
+
+            self.player.update(DELTA);
         }
+
+        self.update_ui(ctx);
 
         Ok(())
     }
@@ -69,6 +98,15 @@ impl EventHandler for State {
         graphics::clear(ctx);
 
         self.player.draw(ctx, &self.assets)?;
+
+        let pos_dest = Point2::new(2.0, 0.0);
+        let vel_dest = Point2::new(2.0, 14.0);
+        let acc_dest = Point2::new(2.0, 28.0);
+        let input_state_dest = Point2::new(self.width as f32 - self.input_state_text.width() as f32 - 5.0, 2.0);
+        graphics::draw(ctx, &self.pos_text, pos_dest, 0.0)?;
+        graphics::draw(ctx, &self.vel_text, vel_dest, 0.0)?;
+        graphics::draw(ctx, &self.acc_text, acc_dest, 0.0)?;
+        graphics::draw(ctx, &self.input_state_text, input_state_dest, 0.0)?;
 
         // Then we flip the screen...
         graphics::present(ctx);
@@ -81,6 +119,33 @@ impl EventHandler for State {
         // The actual behavior can be a little platform-specific.
         timer::yield_now();
         Ok(())
+    }
+    fn key_down_event(&mut self, ctx: &mut Context, keycode: Keycode, _: Mod, repeat: bool) {
+        if repeat {
+            return
+        }
+        use Keycode::*;
+        match keycode {
+            W | Up => self.input.ver += 1.,
+            S | Down => self.input.ver -= 1.,
+            A | Left => self.input.hor -= 1.,
+            D | Right => self.input.hor += 1.,
+            Escape => ctx.quit().unwrap(),
+            _ => return,
+        }
+    }
+    fn key_up_event(&mut self, _ctx: &mut Context, keycode: Keycode, _: Mod, repeat: bool) {
+        if repeat {
+            return
+        }
+        use Keycode::*;
+        match keycode {
+            W | Up => self.input.ver -= 1.,
+            S | Down => self.input.ver += 1.,
+            A | Left => self.input.hor += 1.,
+            D | Right => self.input.hor -= 1.,
+            _ => return,
+        }
     }
 }
 
