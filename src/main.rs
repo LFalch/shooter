@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate lazy_static;
 extern crate ggez;
 
 // use ggez::audio;
@@ -25,8 +23,9 @@ struct State {
     assets: Assets,
     width: u32,
     height: u32,
+    alt_time: f32,
     player: PhysObj,
-    input_state_text: Text,
+    rot_text: Text,
     vel_text: Text,
     pos_text: Text,
     acc_text: Text,
@@ -38,7 +37,7 @@ impl State {
         graphics::set_background_color(ctx, (0, 0, 0, 255).into());
         let assets = Assets::new(ctx)?;
 
-        let input_state_text = Text::new(ctx, "hor: 0, ver: 0", &assets.font)?;
+        let rot_text = Text::new(ctx, "Rotation: {:6.2}", &assets.font)?;
         let pos_text = Text::new(ctx, "Pos: (0.00, 0.00)", &assets.font)?;
         let vel_text = Text::new(ctx, "Vel: (0.00, 0.00)", &assets.font)?;
         let acc_text = Text::new(ctx, "Acc: (0.00, 0.00)", &assets.font)?;
@@ -50,22 +49,30 @@ impl State {
             assets,
             width,
             height,
-            input_state_text,
+            alt_time: 0.,
+            rot_text,
             pos_text,
             vel_text,
             acc_text,
-            player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::Ship)
+            player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff)
         })
     }
     fn update_ui(&mut self, ctx: &mut Context) {
-        let pos_str = format!("Pos: ({:7.2}, {:7.2})", self.player.obj.pos.x, self.player.obj.pos.y);
-        let vel_str = format!("Vel: ({:7.2}, {:7.2})", self.player.vel.x, self.player.vel.y);
-        let acc_str = format!("Acc: ({:7.2}, {:7.2})", self.player.acc.x, self.player.acc.y);
-        let is_str = format!("hor: {}, ver: {}", self.input.hor, self.input.ver);
+        let pos_str = format!("Pos: ({:8.2}, {:8.2})", self.player.obj.pos.x, self.player.obj.pos.y);
+        let vel_str = format!("Vel: ({:8.2}, {:8.2})", self.player.vel.x, self.player.vel.y);
+        let acc_str = format!("Acc: ({:8.2}, {:8.2}). Sprite: {:?}", self.player.acc.x, self.player.acc.y, self.player.obj.spr);
+        let mut rot = self.player.obj.rot * 180./::std::f32::consts::PI;
+        while rot < 0. {
+            rot += 360.;
+        }
+        while rot > 360. {
+            rot -= 360.;
+        }
+        let rot_str = format!("Rotation: {:6.2}", rot);
         self.pos_text = Text::new(ctx, &pos_str, &self.assets.font).unwrap();
         self.vel_text = Text::new(ctx, &vel_str, &self.assets.font).unwrap();
         self.acc_text = Text::new(ctx, &acc_str, &self.assets.font).unwrap();
-        self.input_state_text = Text::new(ctx, &is_str, &self.assets.font).unwrap();
+        self.rot_text = Text::new(ctx, &rot_str, &self.assets.font).unwrap();
     }
 }
 
@@ -80,9 +87,15 @@ impl EventHandler for State {
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
             const DELTA: f32 = 1. / DESIRED_FPS as f32;
+            self.alt_time += DELTA;
 
             self.player.obj.rot += 1.7 * self.input.hor * DELTA;
             self.player.acc = 50. * angle_to_vec(self.player.obj.rot) * self.input.ver;
+
+            if self.alt_time > 2. {
+                self.player.obj.spr.toggle();
+                self.alt_time -= 2.;
+            }
 
             self.player.update(DELTA);
         }
@@ -102,11 +115,11 @@ impl EventHandler for State {
         let pos_dest = Point2::new(2.0, 0.0);
         let vel_dest = Point2::new(2.0, 14.0);
         let acc_dest = Point2::new(2.0, 28.0);
-        let input_state_dest = Point2::new(self.width as f32 - self.input_state_text.width() as f32 - 5.0, 2.0);
+        let rot_dest = Point2::new(self.width as f32 - self.rot_text.width() as f32 - 5.0, 2.0);
         graphics::draw(ctx, &self.pos_text, pos_dest, 0.0)?;
         graphics::draw(ctx, &self.vel_text, vel_dest, 0.0)?;
         graphics::draw(ctx, &self.acc_text, acc_dest, 0.0)?;
-        graphics::draw(ctx, &self.input_state_text, input_state_dest, 0.0)?;
+        graphics::draw(ctx, &self.rot_text, rot_dest, 0.0)?;
 
         // Then we flip the screen...
         graphics::present(ctx);
