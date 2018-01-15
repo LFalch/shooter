@@ -5,7 +5,7 @@ use ggez::conf;
 use ggez::event::*;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::timer;
-use ggez::graphics::{self, Vector2, Point2, Text};
+use ggez::graphics::{self, Vector2, Point2, Text, Color};
 
 mod obj;
 use obj::*;
@@ -23,7 +23,7 @@ struct State {
     assets: Assets,
     width: u32,
     height: u32,
-    alt_time: f32,
+    on_time: f32,
     player: PhysObj,
     rot_text: Text,
     vel_text: Text,
@@ -49,7 +49,7 @@ impl State {
             assets,
             width,
             height,
-            alt_time: 0.,
+            on_time: 0.,
             rot_text,
             pos_text,
             vel_text,
@@ -60,7 +60,7 @@ impl State {
     fn update_ui(&mut self, ctx: &mut Context) {
         let pos_str = format!("Pos: ({:8.2}, {:8.2})", self.player.obj.pos.x, self.player.obj.pos.y);
         let vel_str = format!("Vel: ({:8.2}, {:8.2})", self.player.vel.x, self.player.vel.y);
-        let acc_str = format!("Acc: ({:8.2}, {:8.2}). Sprite: {:?}", self.player.acc.x, self.player.acc.y, self.player.obj.spr);
+        let acc_str = format!("Acc: ({:8.2}, {:8.2})", self.player.acc.x, self.player.acc.y);
         let mut rot = self.player.obj.rot * 180./::std::f32::consts::PI;
         while rot < 0. {
             rot += 360.;
@@ -81,21 +81,44 @@ fn angle_to_vec(angle: f32) -> Vector2 {
     Vector2::new(sin, -cos)
 }
 
+const GREEN: Color = Color{r:0.,g:1.,b:0.,a:0.5};
+const RED: Color = Color{r:1.,g:0.,b:0.,a:0.5};
+const WHITE: Color = Color{r:1.,g:1.,b:1.,a:1.};
+
 impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
             const DELTA: f32 = 1. / DESIRED_FPS as f32;
-            self.alt_time += DELTA;
 
-            self.player.obj.rot += 1.7 * self.input.hor * DELTA;
-            self.player.acc = 50. * angle_to_vec(self.player.obj.rot) * self.input.ver;
-
-            if self.alt_time > 2. {
-                self.player.obj.spr.toggle();
-                self.alt_time -= 2.;
+            if self.input.ver != 0. {
+                self.on_time += DELTA;
+                self.player.obj.spr = Sprite::ShipOn;
+            } else {
+                self.on_time = 0.;
+                self.player.obj.spr = Sprite::ShipOff;
             }
+            let acc;
+            if self.on_time > 0.5 {
+                if self.on_time > 1.5 {
+                    if self.on_time > 2.3 {
+                        self.player.obj.spr = Sprite::ShipSpeed3;
+                        acc = 65.;
+                    } else {
+                        self.player.obj.spr = Sprite::ShipSpeed2;
+                        acc = 50.;
+                    }
+                } else {
+                    self.player.obj.spr = Sprite::ShipSpeed1;
+                    acc = 30.;
+                }
+            } else {
+                acc = 10.;
+            }
+            self.player.obj.rot += 1.7 * self.input.hor * DELTA;
+            self.player.acc = acc * angle_to_vec(self.player.obj.rot) * self.input.ver;
+
 
             self.player.update(DELTA);
         }
@@ -111,6 +134,12 @@ impl EventHandler for State {
         graphics::clear(ctx);
 
         self.player.draw(ctx, &self.assets)?;
+        graphics::set_color(ctx, GREEN)?;
+        let vel = self.player.obj.pos+self.player.vel;
+        graphics::line(ctx, &[self.player.obj.pos, vel], 2.)?;
+        graphics::set_color(ctx, RED)?;
+        graphics::line(ctx, &[vel, vel + self.player.acc], 2.)?;
+        graphics::set_color(ctx, WHITE)?;
 
         let pos_dest = Point2::new(2.0, 0.0);
         let vel_dest = Point2::new(2.0, 14.0);
@@ -165,7 +194,7 @@ impl EventHandler for State {
 fn main() {
     let mut ctx = ContextBuilder::new("shooter", "LFalch")
         .window_setup(conf::WindowSetup::default().title("Shooter"))
-        .window_mode(conf::WindowMode::default().dimensions(800, 600))
+        .window_mode(conf::WindowMode::default().dimensions(1000, 750))
         .build().unwrap();
 
     if let Ok(manifest_dir) = ::std::env::var("CARGO_MANIFEST_DIR") {
