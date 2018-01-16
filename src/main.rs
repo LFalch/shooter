@@ -14,8 +14,19 @@ use tex::*;
 
 #[derive(Debug, Default)]
 struct InputState {
-    hor: f32,
-    ver: f32,
+    hor: i8,
+    ver: i8,
+}
+
+impl InputState {
+    #[inline]
+    fn hor(&self) -> f32 {
+        self.hor.signum() as f32
+    }
+    #[inline]
+    fn ver(&self) -> f32 {
+        self.ver.signum() as f32
+    }
 }
 
 struct State {
@@ -25,10 +36,10 @@ struct State {
     height: u32,
     on_time: f32,
     player: PhysObj,
-    rot_text: Text,
-    vel_text: Text,
-    pos_text: Text,
-    acc_text: Text,
+    rot_text: PosText,
+    vel_text: PosText,
+    pos_text: PosText,
+    acc_text: PosText,
 }
 
 impl State {
@@ -37,12 +48,13 @@ impl State {
         graphics::set_background_color(ctx, (0, 0, 0, 255).into());
         let assets = Assets::new(ctx)?;
 
-        let rot_text = Text::new(ctx, "Rotation: {:6.2}", &assets.font)?;
-        let pos_text = Text::new(ctx, "Pos: (0.00, 0.00)", &assets.font)?;
-        let vel_text = Text::new(ctx, "Vel: (0.00, 0.00)", &assets.font)?;
-        let acc_text = Text::new(ctx, "Acc: (0.00, 0.00)", &assets.font)?;
         let width = ctx.conf.window_mode.width;
         let height = ctx.conf.window_mode.height;
+
+        let acc_text = assets.text(ctx, Point2::new(2.0, 0.0), "Acc: (0.00, 0.00)")?;
+        let pos_text = assets.text(ctx, Point2::new(2.0, 14.0), "Pos: (0.00, 0.00)")?;
+        let vel_text = assets.text(ctx, Point2::new(2.0, 28.0), "Vel: (0.00, 0.00)")?;
+        let rot_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Rotation: {:6.2}")?;
 
         Ok(State {
             input: Default::default(),
@@ -69,10 +81,11 @@ impl State {
             rot -= 360.;
         }
         let rot_str = format!("Rotation: {:6.2}", rot);
-        self.pos_text = Text::new(ctx, &pos_str, &self.assets.font).unwrap();
-        self.vel_text = Text::new(ctx, &vel_str, &self.assets.font).unwrap();
-        self.acc_text = Text::new(ctx, &acc_str, &self.assets.font).unwrap();
-        self.rot_text = Text::new(ctx, &rot_str, &self.assets.font).unwrap();
+        self.pos_text.update_text(&self.assets, ctx, &pos_str).unwrap();
+        self.vel_text.update_text(&self.assets, ctx, &vel_str).unwrap();
+        self.acc_text.update_text(&self.assets, ctx, &acc_str).unwrap();
+        self.rot_text.update_text(&self.assets, ctx, &rot_str).unwrap();
+        self.rot_text.update_ra(self.width as f32 - 5.0);
     }
 }
 
@@ -83,7 +96,6 @@ fn angle_to_vec(angle: f32) -> Vector2 {
 
 const GREEN: Color = Color{r:0.,g:1.,b:0.,a:0.5};
 const RED: Color = Color{r:1.,g:0.,b:0.,a:0.5};
-const WHITE: Color = Color{r:1.,g:1.,b:1.,a:1.};
 
 impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
@@ -92,7 +104,7 @@ impl EventHandler for State {
         while timer::check_update_time(ctx, DESIRED_FPS) {
             const DELTA: f32 = 1. / DESIRED_FPS as f32;
 
-            if self.input.ver != 0. {
+            if self.input.ver != 0 {
                 self.on_time += DELTA;
                 self.player.obj.spr = Sprite::ShipOn;
             } else {
@@ -116,9 +128,8 @@ impl EventHandler for State {
             } else {
                 acc = 10.;
             }
-            self.player.obj.rot += 1.7 * self.input.hor * DELTA;
-            self.player.acc = acc * angle_to_vec(self.player.obj.rot) * self.input.ver;
-
+            self.player.obj.rot += 1.7 * self.input.hor() * DELTA;
+            self.player.acc = acc * angle_to_vec(self.player.obj.rot) * self.input.ver();
 
             self.player.update(DELTA);
         }
@@ -139,16 +150,12 @@ impl EventHandler for State {
         graphics::line(ctx, &[self.player.obj.pos, vel], 2.)?;
         graphics::set_color(ctx, RED)?;
         graphics::line(ctx, &[vel, vel + self.player.acc], 2.)?;
-        graphics::set_color(ctx, WHITE)?;
+        graphics::set_color(ctx, graphics::WHITE)?;
 
-        let pos_dest = Point2::new(2.0, 0.0);
-        let vel_dest = Point2::new(2.0, 14.0);
-        let acc_dest = Point2::new(2.0, 28.0);
-        let rot_dest = Point2::new(self.width as f32 - self.rot_text.width() as f32 - 5.0, 2.0);
-        graphics::draw(ctx, &self.pos_text, pos_dest, 0.0)?;
-        graphics::draw(ctx, &self.vel_text, vel_dest, 0.0)?;
-        graphics::draw(ctx, &self.acc_text, acc_dest, 0.0)?;
-        graphics::draw(ctx, &self.rot_text, rot_dest, 0.0)?;
+        self.pos_text.draw_text(ctx)?;
+        self.vel_text.draw_text(ctx)?;
+        self.acc_text.draw_text(ctx)?;
+        self.rot_text.draw_text(ctx)?;
 
         // Then we flip the screen...
         graphics::present(ctx);
@@ -168,10 +175,10 @@ impl EventHandler for State {
         }
         use Keycode::*;
         match keycode {
-            W | Up => self.input.ver += 1.,
-            S | Down => self.input.ver -= 1.,
-            A | Left => self.input.hor -= 1.,
-            D | Right => self.input.hor += 1.,
+            W | Up => self.input.ver += 1,
+            S | Down => self.input.ver -= 1,
+            A | Left => self.input.hor -= 1,
+            D | Right => self.input.hor += 1,
             Escape => ctx.quit().unwrap(),
             _ => return,
         }
@@ -182,10 +189,10 @@ impl EventHandler for State {
         }
         use Keycode::*;
         match keycode {
-            W | Up => self.input.ver -= 1.,
-            S | Down => self.input.ver += 1.,
-            A | Left => self.input.hor += 1.,
-            D | Right => self.input.hor -= 1.,
+            W | Up => self.input.ver -= 1,
+            S | Down => self.input.ver += 1,
+            A | Left => self.input.hor += 1,
+            D | Right => self.input.hor -= 1,
             _ => return,
         }
     }
