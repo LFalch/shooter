@@ -8,6 +8,7 @@ pub enum Sprite {
     ShipSpeed1,
     ShipSpeed2,
     ShipSpeed3,
+    Asteroid,
 }
 
 pub struct Assets {
@@ -16,6 +17,7 @@ pub struct Assets {
     ship_speed1: Image,
     ship_speed2: Image,
     ship_speed3: Image,
+    asteroid: Image,
     pub font: Font,
 }
 
@@ -26,6 +28,7 @@ impl Assets {
         let ship_speed1 = Image::new(ctx, "/ship_speed1.png")?;
         let ship_speed2 = Image::new(ctx, "/ship_speed2.png")?;
         let ship_speed3 = Image::new(ctx, "/ship_speed3.png")?;
+        let asteroid = Image::new(ctx, "/asteroid.png")?;
 
         Ok(Assets {
             ship_on,
@@ -33,6 +36,7 @@ impl Assets {
             ship_speed1,
             ship_speed2,
             ship_speed3,
+            asteroid,
             font: Font::new(ctx, "/FiraMono.ttf", 13)?,
         })
     }
@@ -45,6 +49,7 @@ impl Assets {
             ShipSpeed1 => &self.ship_speed1,
             ShipSpeed2 => &self.ship_speed2,
             ShipSpeed3 => &self.ship_speed3,
+            Asteroid => &self.asteroid,
         }
     }
     pub fn text(&self, context: &mut Context, pos: Point2, text: &str) -> GameResult<PosText> {

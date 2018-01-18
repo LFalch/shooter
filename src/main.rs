@@ -36,6 +36,7 @@ struct State {
     height: u32,
     on_time: f32,
     player: PhysObj,
+    asteroids: Vec<RotatableObj>,
     rot_text: PosText,
     vel_text: PosText,
     pos_text: PosText,
@@ -66,6 +67,7 @@ impl State {
             pos_text,
             vel_text,
             acc_text,
+            asteroids: vec![RotatableObj::new(Point2::new(50., 50.), Sprite::Asteroid, 0.1)],
             player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff)
         })
     }
@@ -94,8 +96,15 @@ fn angle_to_vec(angle: f32) -> Vector2 {
     Vector2::new(sin, -cos)
 }
 
-const GREEN: Color = Color{r:0.,g:1.,b:0.,a:0.5};
-const RED: Color = Color{r:1.,g:0.,b:0.,a:0.5};
+pub fn angle_from_vec(v: &Vector2) -> f32 {
+    let x = v.x;
+    let y = v.y;
+
+    x.atan2(-y)
+}
+
+pub const GREEN: Color = Color{r:0.,g:1.,b:0.,a:0.5};
+pub const RED: Color = Color{r:1.,g:0.,b:0.,a:0.5};
 
 impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
@@ -132,6 +141,13 @@ impl EventHandler for State {
             self.player.acc = acc * angle_to_vec(self.player.obj.rot) * self.input.ver();
 
             self.player.update(DELTA);
+
+            for ast in &mut self.asteroids {
+                ast.update(DELTA);
+                if self.player.collides(&ast) {
+                    println!("ARGH!");
+                }
+            }
         }
 
         self.update_ui(ctx);
@@ -145,12 +161,9 @@ impl EventHandler for State {
         graphics::clear(ctx);
 
         self.player.draw(ctx, &self.assets)?;
-        graphics::set_color(ctx, GREEN)?;
-        let vel = self.player.obj.pos+self.player.vel;
-        graphics::line(ctx, &[self.player.obj.pos, vel], 2.)?;
-        graphics::set_color(ctx, RED)?;
-        graphics::line(ctx, &[vel, vel + self.player.acc], 2.)?;
-        graphics::set_color(ctx, graphics::WHITE)?;
+        for ast in &self.asteroids {
+            ast.draw(ctx, &self.assets)?;
+        }
 
         self.pos_text.draw_text(ctx)?;
         self.vel_text.draw_text(ctx)?;
@@ -160,12 +173,6 @@ impl EventHandler for State {
         // Then we flip the screen...
         graphics::present(ctx);
 
-        // And yield the timeslice
-        // This tells the OS that we're done using the CPU but it should
-        // get back to this program as soon as it can.
-        // This ideally prevents the game from using 100% CPU all the time
-        // even if vsync is off.
-        // The actual behavior can be a little platform-specific.
         timer::yield_now();
         Ok(())
     }
