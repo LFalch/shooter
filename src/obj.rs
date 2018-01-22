@@ -102,6 +102,20 @@ impl PhysObj {
         self.obj.pos += 0.5 * self.acc * dt * dt + self.vel * dt;
         self.vel += self.acc * dt;
     }
+    /// Make the two objects' velocities go away from each other
+    pub fn bounce(&mut self, oth: &mut Self) -> (Vector2, f32, f32) {
+        let dir = na::normalize(&(self.pos - oth.pos));
+        let self_vel_towards = na::dot(&self.vel, &-dir);
+        let oth_vel_towards = na::dot(&oth.vel, &dir);
+
+        if self_vel_towards > 0. {
+            self.vel += 2. * self_vel_towards * dir;
+        }
+        if oth_vel_towards > 0. {
+            oth.vel -= 2. * oth_vel_towards * dir;
+        }
+        (dir, self_vel_towards, oth_vel_towards)
+    }
 }
 
 impl Deref for PhysObj {
