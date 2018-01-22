@@ -5,7 +5,7 @@ use ggez::conf;
 use ggez::event::*;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::timer;
-use ggez::graphics::{self, Vector2, Point2, Text, Color};
+use ggez::graphics::{self, Vector2, Point2, Color};
 use ggez::nalgebra as na;
 
 mod obj;
@@ -157,6 +157,17 @@ impl EventHandler for State {
             self.player.acc = acc * angle_to_vec(self.player.obj.rot) * self.input.ver();
 
             self.player.update(DELTA);
+
+            for i in 0..self.asteroids.len() {
+                for j in i+1..self.asteroids.len() {
+                    let mut oth = std::mem::replace(&mut self.asteroids[j], RotatableObj::new(Point2::new(0., 0.), Sprite::Asteroid, 0.));
+                    if self.asteroids[i].collides(&oth) {
+                        self.asteroids[i].uncollide(&mut oth);
+                        self.asteroids[i].bounce(&mut oth);
+                    }
+                    self.asteroids[j] = oth;
+                }
+            }
 
             for ast in &mut self.asteroids {
                 ast.update(DELTA);

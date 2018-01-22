@@ -2,8 +2,9 @@ use ggez::{Context, GameResult};
 use ggez::graphics::{self, Point2, Vector2};
 use ggez::nalgebra as na;
 
-use super::{Assets, Sprite, GREEN, RED, angle_from_vec, angle_to_vec};
+use super::{Assets, Sprite, GREEN, RED};
 
+#[derive(Debug)]
 pub struct Obj {
     pub pos: Point2,
     pub spr: Sprite,
@@ -33,13 +34,14 @@ impl Obj {
     pub fn uncollide(&mut self, oth: &mut Self) {
         let center = na::center(&self.pos, &oth.pos);
         let diff_vec = self.pos - oth.pos;
-        let dir = angle_from_vec(&diff_vec);
+        let dir = na::normalize(&diff_vec);
 
-        self.pos = center + 24. * angle_to_vec(dir);
-        oth.pos = center - 24. * angle_to_vec(dir);
+        self.pos = center + 24. * dir;
+        oth.pos = center - 24. * dir;
     }
 }
 
+#[derive(Debug)]
 pub struct RotatableObj {
     pub rot_vel: f32,
     pub obj: PhysObj,
@@ -72,6 +74,7 @@ impl RotatableObj {
     }
 }
 
+#[derive(Debug)]
 pub struct PhysObj {
     pub obj: Obj,
     pub vel: Vector2,
