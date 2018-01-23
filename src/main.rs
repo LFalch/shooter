@@ -111,6 +111,7 @@ pub fn angle_from_vec(v: &Vector2) -> f32 {
     x.atan2(-y)
 }
 
+pub const TRANS: Color = Color{r:1.,g:1.,b:1.,a:0.5};
 pub const GREEN: Color = Color{r:0.,g:1.,b:0.,a:0.5};
 pub const RED: Color = Color{r:1.,g:0.,b:0.,a:0.5};
 pub const BLUE: Color = Color{r:0.,g:0.,b:1.,a:0.5};
@@ -119,7 +120,8 @@ impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
 
-        for _ in  10..self.uncollisions.len() {
+        self.uncollisions.retain(|c| c.vec.norm() > 1.);
+        for _ in  20..self.uncollisions.len() {
             self.uncollisions.remove(0);
         }
 
@@ -163,7 +165,16 @@ impl EventHandler for State {
                     let mut oth = std::mem::replace(&mut self.asteroids[j], RotatableObj::new(Point2::new(0., 0.), Sprite::Asteroid, 0.));
                     if self.asteroids[i].collides(&oth) {
                         self.asteroids[i].uncollide(&mut oth);
-                        self.asteroids[i].bounce(&mut oth);
+                        let (dir, s, o) = self.asteroids[i].bounce(&mut oth);
+
+                        self.uncollisions.push(Uncollision {
+                            pos: self.asteroids[i].pos,
+                            vec: dir * s,
+                        });
+                        self.uncollisions.push(Uncollision {
+                            pos: oth.pos,
+                            vec: dir * o,
+                        });
                     }
                     self.asteroids[j] = oth;
                 }
@@ -205,6 +216,16 @@ impl EventHandler for State {
         for uc in &self.uncollisions {
             graphics::set_color(ctx, BLUE)?;
             graphics::line(ctx, &[uc.pos, uc.pos+uc.vec], 2.)?;
+        }
+
+        if let Some(proto_pos) = self.spawn_coords {
+            let params = graphics::DrawParam {
+                dest: proto_pos,
+                offset: Point2::new(0.5, 0.5),
+                color: Some(TRANS),
+                .. Default::default()
+            };
+            graphics::draw_ex(ctx, self.assets.get_img(Sprite::Asteroid), params)?;
         }
 
         graphics::set_color(ctx, graphics::WHITE)?;

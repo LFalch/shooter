@@ -29,15 +29,17 @@ impl Obj {
         graphics::draw_ex(ctx, assets.get_img(self.spr), drawparams)
     }
     pub fn collides(&self, oth: &Self) -> bool {
-        na::distance(&self.pos, &oth.pos) <= 48.
+        na::distance(&self.pos, &oth.pos) <= self.spr.radius() + oth.spr.radius()
     }
     pub fn uncollide(&mut self, oth: &mut Self) {
         let center = na::center(&self.pos, &oth.pos);
         let diff_vec = self.pos - oth.pos;
         let dir = na::normalize(&diff_vec);
 
-        self.pos = center + 24. * dir;
-        oth.pos = center - 24. * dir;
+        let diff = (self.spr.radius()+oth.spr.radius())/2. * dir;
+
+        self.pos = center + diff;
+        oth.pos = center - diff;
     }
 }
 

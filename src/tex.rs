@@ -11,6 +11,38 @@ pub enum Sprite {
     Asteroid,
 }
 
+impl Sprite {
+    pub fn width(&self) -> f32 {
+        use Sprite::*;
+        match *self {
+            ShipOn => 48.,
+            ShipOff => 48.,
+            ShipSpeed1 => 48.,
+            ShipSpeed2 => 48.,
+            ShipSpeed3 => 48.,
+            Asteroid => 48.,
+        }
+    }
+    pub fn height(&self) -> f32 {
+        use Sprite::*;
+        match *self {
+            ShipOn => 48.,
+            ShipOff => 48.,
+            ShipSpeed1 => 48.,
+            ShipSpeed2 => 48.,
+            ShipSpeed3 => 48.,
+            Asteroid => 48.,
+        }
+    }
+    pub fn radius(&self) -> f32 {
+        use Sprite::*;
+        match *self {
+            ShipOn|ShipOff|ShipSpeed1|ShipSpeed2|ShipSpeed3 => 20.,
+            Asteroid => 24.,
+        }
+    }
+}
+
 pub struct Assets {
     ship_on: Image,
     ship_off: Image,
