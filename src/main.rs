@@ -36,6 +36,7 @@ struct State {
     width: u32,
     height: u32,
     on_time: f32,
+    rebound: bool,
     spawn_coords: Option<Point2>,
     uncollisions: Vec<Uncollision>,
     player: PhysObj,
@@ -72,6 +73,7 @@ impl State {
             height,
             on_time: 0.,
             spawn_coords: None,
+            rebound: false,
             rot_text,
             pos_text,
             vel_text,
@@ -127,6 +129,8 @@ impl EventHandler for State {
 
         let centre = Point2::new((self.width/2) as f32, (self.height/2) as f32);
         self.asteroids.retain(|ast| na::distance(&ast.pos, &centre) <= centre.coords.norm());
+        let width = self.width as f32;
+        let height = self.height as f32;
 
         while timer::check_update_time(ctx, DESIRED_FPS) {
             const DELTA: f32 = 1. / DESIRED_FPS as f32;
@@ -159,6 +163,9 @@ impl EventHandler for State {
             self.player.acc = acc * angle_to_vec(self.player.obj.rot) * self.input.ver();
 
             self.player.update(DELTA);
+            if self.rebound {
+                self.player.rebound(width, height);
+            }
 
             for i in 0..self.asteroids.len() {
                 for j in i+1..self.asteroids.len() {
@@ -182,6 +189,9 @@ impl EventHandler for State {
 
             for ast in &mut self.asteroids {
                 ast.update(DELTA);
+                if self.rebound {
+                    ast.rebound(width, height);
+                }
                 if self.player.collides(&ast) {
                     self.player.uncollide(ast);
                     let (v1, v2) = self.player.elastic_collide(ast);
@@ -264,6 +274,7 @@ impl EventHandler for State {
             S | Down => self.input.ver += 1,
             A | Left => self.input.hor += 1,
             D | Right => self.input.hor -= 1,
+            K => self.rebound = !self.rebound,
             _ => return,
         }
     }

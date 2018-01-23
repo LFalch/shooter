@@ -107,7 +107,7 @@ impl PhysObj {
         self.obj.pos += 0.5 * self.acc * dt * dt + self.vel * dt;
         self.vel += self.acc * dt;
     }
-    /// Realistic elastic colliosin
+    /// Realistic elastic collision
     pub fn elastic_collide(&mut self, oth: &mut Self) -> (Vector2, Vector2) {
         const M1: f32 = 1.;
         const M2: f32 = 1.;
@@ -127,6 +127,27 @@ impl PhysObj {
         oth.vel -= vel2_diff;
 
         (vel1_diff, vel2_diff)
+    }
+    /// Rebound off edge
+    pub fn rebound(&mut self, width: f32, height: f32) {
+        let w = self.spr.width()/2.;
+        let h = self.spr.height()/2.;
+
+        if self.pos.x - w < 0. {
+            self.pos.x = -self.pos.x + 2.*w;
+            self.vel.x = -self.vel.x;
+        } else if self.pos.x + w > width {
+            self.pos.x = self.pos.x - 2.*(self.pos.x + w - width);
+            self.vel.x = -self.vel.x;
+        }
+
+        if self.pos.y - h < 0. {
+            self.pos.y = -self.pos.y + 2.*h;
+            self.vel.y = -self.vel.y;
+        } else if self.pos.y + h > height {
+            self.pos.y = self.pos.y - 2.*(self.pos.y + h-height);
+            self.vel.y = -self.vel.y;
+        }
     }
 }
 
