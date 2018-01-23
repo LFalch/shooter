@@ -165,15 +165,15 @@ impl EventHandler for State {
                     let mut oth = std::mem::replace(&mut self.asteroids[j], RotatableObj::new(Point2::new(0., 0.), Sprite::Asteroid, 0.));
                     if self.asteroids[i].collides(&oth) {
                         self.asteroids[i].uncollide(&mut oth);
-                        let (dir, s, o) = self.asteroids[i].bounce(&mut oth);
+                        let (v1, v2) = self.asteroids[i].elastic_collide(&mut oth);
 
                         self.uncollisions.push(Uncollision {
                             pos: self.asteroids[i].pos,
-                            vec: dir * s,
+                            vec: v1,
                         });
                         self.uncollisions.push(Uncollision {
                             pos: oth.pos,
-                            vec: dir * o,
+                            vec: v2,
                         });
                     }
                     self.asteroids[j] = oth;
@@ -184,15 +184,15 @@ impl EventHandler for State {
                 ast.update(DELTA);
                 if self.player.collides(&ast) {
                     self.player.uncollide(ast);
-                    let (dir, s, o) = self.player.bounce(ast);
+                    let (v1, v2) = self.player.elastic_collide(ast);
 
                     self.uncollisions.push(Uncollision {
                         pos: self.player.pos,
-                        vec: dir * s,
+                        vec: v1,
                     });
                     self.uncollisions.push(Uncollision {
                         pos: ast.pos,
-                        vec: dir * o,
+                        vec: v2,
                     });
                 }
             }
@@ -279,6 +279,12 @@ impl EventHandler for State {
                 ast.vel = ast.pos - Point2::new(x as f32, y as f32);
                 self.asteroids.push(ast);
             }
+        }
+        if let MouseButton::Middle = btn {
+            self.player.pos = Point2::new(x as f32, y as f32);
+        }
+        if let MouseButton::Right = btn {
+            self.player.vel = Point2::new(x as f32, y as f32) - self.player.pos;
         }
     }
 }

@@ -107,19 +107,26 @@ impl PhysObj {
         self.obj.pos += 0.5 * self.acc * dt * dt + self.vel * dt;
         self.vel += self.acc * dt;
     }
-    /// Make the two objects' velocities go away from each other
-    pub fn bounce(&mut self, oth: &mut Self) -> (Vector2, f32, f32) {
-        let dir = na::normalize(&(self.pos - oth.pos));
-        let self_vel_towards = na::dot(&self.vel, &-dir);
-        let oth_vel_towards = na::dot(&oth.vel, &dir);
+    /// Realistic elastic colliosin
+    pub fn elastic_collide(&mut self, oth: &mut Self) -> (Vector2, Vector2) {
+        const M1: f32 = 1.;
+        const M2: f32 = 1.;
+        let v1 = self.vel;
+        let v2 = oth.vel;
 
-        if self_vel_towards > 0. {
-            self.vel += 2. * self_vel_towards * dir;
-        }
-        if oth_vel_towards > 0. {
-            oth.vel -= 2. * oth_vel_towards * dir;
-        }
-        (dir, self_vel_towards, oth_vel_towards)
+        let mass_quotient = 2./(M1+M2);
+
+        let dist = self.pos - oth.pos;
+        let dist_n2 = dist.norm_squared();
+
+        let vel_diff = mass_quotient * na::dot(&(v1-v2), &dist)/dist_n2*dist;
+
+        let vel1_diff = M2 * vel_diff;
+        self.vel -= vel1_diff;
+        let vel2_diff = M1 * -vel_diff;
+        oth.vel -= vel2_diff;
+
+        (vel1_diff, vel2_diff)
     }
 }
 
