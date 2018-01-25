@@ -5,7 +5,7 @@ use ggez::conf;
 use ggez::event::*;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::timer;
-use ggez::graphics::{self, Vector2, Point2, Color};
+use ggez::graphics::{self, Vector2, Point2, Matrix4, Color};
 use ggez::nalgebra as na;
 
 mod obj;
@@ -38,6 +38,7 @@ struct State {
     on_time: f32,
     rebound: bool,
     spawn_coords: Option<Point2>,
+    offset: Point2,
     uncollisions: Vec<Uncollision>,
     player: PhysObj,
     asteroids: Vec<RotatableObj>,
@@ -78,6 +79,7 @@ impl State {
             pos_text,
             vel_text,
             acc_text,
+            offset: Point2::new(0., 0.),
             uncollisions: vec![],
             asteroids: vec![RotatableObj::new(Point2::new(150., 150.), Sprite::Asteroid, 0.1)],
             player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff)
@@ -98,6 +100,9 @@ impl State {
         self.acc_text.update_text(&self.assets, ctx, &acc_str).unwrap();
         self.rot_text.update_text(&self.assets, ctx, &rot_str).unwrap();
         self.rot_text.update_ra(self.width as f32 - 5.0);
+    }
+    fn focus_on(&mut self, p: Point2) {
+        self.offset = -p + 0.5 * Vector2::new(self.width as f32, self.height as f32);
     }
 }
 
@@ -209,6 +214,10 @@ impl EventHandler for State {
         }
 
         self.update_ui(ctx);
+        if !self.rebound {
+            let p = self.player.pos;
+            self.focus_on(p);
+        }
 
         Ok(())
     }
@@ -217,6 +226,8 @@ impl EventHandler for State {
         // Our drawing is quite simple.
         // Just clear the screen...
         graphics::clear(ctx);
+        graphics::push_transform(ctx, Some(Matrix4::new_translation(&na::Vector3::<f32>::new(self.offset.x, self.offset.y, 0.))));
+        graphics::apply_transformations(ctx)?;
 
         self.player.draw(ctx, &self.assets)?;
         for ast in &self.asteroids {
@@ -237,6 +248,9 @@ impl EventHandler for State {
             };
             graphics::draw_ex(ctx, self.assets.get_img(Sprite::Asteroid), params)?;
         }
+
+        graphics::pop_transform(ctx);
+        graphics::apply_transformations(ctx)?;
 
         graphics::set_color(ctx, graphics::WHITE)?;
         self.pos_text.draw_text(ctx)?;
