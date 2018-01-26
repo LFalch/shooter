@@ -38,19 +38,13 @@ struct State {
     on_time: f32,
     rebound: bool,
     spawn_coords: Option<Point2>,
-    offset: Point2,
-    uncollisions: Vec<Uncollision>,
+    offset: Vector2,
     player: PhysObj,
     asteroids: Vec<RotatableObj>,
     rot_text: PosText,
     vel_text: PosText,
     pos_text: PosText,
     acc_text: PosText,
-}
-
-struct Uncollision {
-    pos: Point2,
-    vec: Vector2,
 }
 
 impl State {
@@ -79,8 +73,7 @@ impl State {
             pos_text,
             vel_text,
             acc_text,
-            offset: Point2::new(0., 0.),
-            uncollisions: vec![],
+            offset: Vector2::new(0., 0.),
             asteroids: vec![RotatableObj::new(Point2::new(150., 150.), Sprite::Asteroid, 0.1)],
             player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff)
         })
@@ -102,7 +95,7 @@ impl State {
         self.rot_text.update_ra(self.width as f32 - 5.0);
     }
     fn focus_on(&mut self, p: Point2) {
-        self.offset = -p + 0.5 * Vector2::new(self.width as f32, self.height as f32);
+        self.offset = -p.coords + 0.5 * Vector2::new(self.width as f32, self.height as f32);
     }
 }
 
@@ -126,11 +119,6 @@ pub const BLUE: Color = Color{r:0.,g:0.,b:1.,a:0.5};
 impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
-
-        self.uncollisions.retain(|c| c.vec.norm() > 1.);
-        for _ in  20..self.uncollisions.len() {
-            self.uncollisions.remove(0);
-        }
 
         let centre = Point2::new((self.width/2) as f32, (self.height/2) as f32);
         self.asteroids.retain(|ast| na::distance(&ast.pos, &centre) <= centre.coords.norm());
@@ -177,16 +165,7 @@ impl EventHandler for State {
                     let mut oth = std::mem::replace(&mut self.asteroids[j], RotatableObj::new(Point2::new(0., 0.), Sprite::Asteroid, 0.));
                     if self.asteroids[i].collides(&oth) {
                         self.asteroids[i].uncollide(&mut oth);
-                        let (v1, v2) = self.asteroids[i].elastic_collide(&mut oth);
-
-                        self.uncollisions.push(Uncollision {
-                            pos: self.asteroids[i].pos,
-                            vec: v1,
-                        });
-                        self.uncollisions.push(Uncollision {
-                            pos: oth.pos,
-                            vec: v2,
-                        });
+                        self.asteroids[i].elastic_collide(&mut oth);
                     }
                     self.asteroids[j] = oth;
                 }
@@ -199,16 +178,7 @@ impl EventHandler for State {
                 }
                 if self.player.collides(&ast) {
                     self.player.uncollide(ast);
-                    let (v1, v2) = self.player.elastic_collide(ast);
-
-                    self.uncollisions.push(Uncollision {
-                        pos: self.player.pos,
-                        vec: v1,
-                    });
-                    self.uncollisions.push(Uncollision {
-                        pos: ast.pos,
-                        vec: v2,
-                    });
+                    self.player.elastic_collide(ast);
                 }
             }
         }
@@ -217,6 +187,8 @@ impl EventHandler for State {
         if !self.rebound {
             let p = self.player.pos;
             self.focus_on(p);
+        } else {
+            self.offset = Vector2::new(0., 0.);
         }
 
         Ok(())
@@ -226,17 +198,12 @@ impl EventHandler for State {
         // Our drawing is quite simple.
         // Just clear the screen...
         graphics::clear(ctx);
-        graphics::push_transform(ctx, Some(Matrix4::new_translation(&na::Vector3::<f32>::new(self.offset.x, self.offset.y, 0.))));
+        graphics::push_transform(ctx, Some(Matrix4::new_translation(&self.offset.fixed_resize(0.))));
         graphics::apply_transformations(ctx)?;
 
         self.player.draw(ctx, &self.assets)?;
         for ast in &self.asteroids {
             ast.draw(ctx, &self.assets)?;
-        }
-
-        for uc in &self.uncollisions {
-            graphics::set_color(ctx, BLUE)?;
-            graphics::line(ctx, &[uc.pos, uc.pos+uc.vec], 2.)?;
         }
 
         if let Some(proto_pos) = self.spawn_coords {
