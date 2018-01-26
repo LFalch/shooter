@@ -10,6 +10,8 @@ use ggez::nalgebra as na;
 
 mod obj;
 use obj::*;
+mod phys;
+use phys::*;
 mod tex;
 use tex::*;
 
@@ -49,7 +51,6 @@ struct State {
 
 impl State {
     fn new(ctx: &mut Context) -> GameResult<Self> {
-        ctx.print_resource_stats();
         graphics::set_background_color(ctx, (0, 0, 0, 255).into());
         let assets = Assets::new(ctx)?;
 
