@@ -92,7 +92,6 @@ impl State {
         self.vel_text.update_text(&self.assets, ctx, &vel_str).unwrap();
         self.acc_text.update_text(&self.assets, ctx, &acc_str).unwrap();
         self.rot_text.update_text(&self.assets, ctx, &rot_str).unwrap();
-        self.rot_text.update_ra(self.width as f32 - 5.0);
     }
     fn focus_on(&mut self, p: Point2) {
         self.offset = -p.coords + 0.5 * Vector2::new(self.width as f32, self.height as f32);

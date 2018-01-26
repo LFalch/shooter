@@ -1,89 +1,83 @@
 use ggez::{Context, GameResult};
-use ggez::graphics::{Image, Font, Text, Point2, Drawable, BlendMode, DrawParam};
+use ggez::graphics::{Image, Font, Text, Point2, Drawable};
 
-#[derive(Debug, Copy, Clone)]
-pub enum Sprite {
-    ShipOn,
-    ShipOff,
-    ShipSpeed1,
-    ShipSpeed2,
-    ShipSpeed3,
-    Asteroid,
+macro_rules! sprites {
+    ($(
+        $name:ident,
+        $tex:ident,
+        $width:expr,
+        $height:expr,
+        $radius: expr,
+    )*) => (
+        #[derive(Debug, Copy, Clone)]
+        pub enum Sprite {
+            $($name,)*
+        }
+
+        impl Sprite {
+            pub fn width(&self) -> f32 {
+                match *self {
+                    $(
+                        Sprite::$name => $width,
+                    )*
+                }
+            }
+            pub fn height(&self) -> f32 {
+                match *self {
+                    $(
+                        Sprite::$name => $height,
+                    )*
+                }
+            }
+            pub fn radius(&self) -> f32 {
+                match *self {
+                    $(
+                        Sprite::$name => $radius,
+                    )*
+                }
+            }
+        }
+        pub struct Assets {
+            $(
+                $tex: Image,
+            )*
+            pub font: Font,
+        }
+
+        impl Assets {
+            pub fn new(ctx: &mut Context) -> GameResult<Self> {
+                $(
+                    let $tex = Image::new(ctx, concat!("/", stringify!($tex), ".png"))?;
+                )*
+
+                Ok((Assets {
+                    $(
+                        $tex,
+                    )*
+                    font: Font::new(ctx, "/FiraMono.ttf", 13)?,
+                }))
+            }
+            pub fn get_img(&self, s: Sprite) -> &Image {
+                match s {
+                    $(
+                        Sprite::$name => &self.$tex,
+                    )*
+                }
+            }
+        }
+    );
 }
 
-impl Sprite {
-    pub fn width(&self) -> f32 {
-        use Sprite::*;
-        match *self {
-            ShipOn => 48.,
-            ShipOff => 48.,
-            ShipSpeed1 => 48.,
-            ShipSpeed2 => 48.,
-            ShipSpeed3 => 48.,
-            Asteroid => 48.,
-        }
-    }
-    pub fn height(&self) -> f32 {
-        use Sprite::*;
-        match *self {
-            ShipOn => 48.,
-            ShipOff => 48.,
-            ShipSpeed1 => 48.,
-            ShipSpeed2 => 48.,
-            ShipSpeed3 => 48.,
-            Asteroid => 48.,
-        }
-    }
-    pub fn radius(&self) -> f32 {
-        use Sprite::*;
-        match *self {
-            ShipOn|ShipOff|ShipSpeed1|ShipSpeed2|ShipSpeed3 => 20.,
-            Asteroid => 24.,
-        }
-    }
-}
-
-pub struct Assets {
-    ship_on: Image,
-    ship_off: Image,
-    ship_speed1: Image,
-    ship_speed2: Image,
-    ship_speed3: Image,
-    asteroid: Image,
-    pub font: Font,
+sprites! {
+    ShipOn, ship_on, 48., 48., 20.,
+    ShipOff, ship_off, 48., 48., 20.,
+    ShipSpeed1, ship_speed1, 48., 48., 20.,
+    ShipSpeed2, ship_speed2, 48., 48., 20.,
+    ShipSpeed3, ship_speed3, 48., 48., 20.,
+    Asteroid, asteroid, 48., 48., 24.,
 }
 
 impl Assets {
-    pub fn new(ctx: &mut Context) -> GameResult<Self> {
-        let ship_on = Image::new(ctx, "/ship_on.png")?;
-        let ship_off = Image::new(ctx, "/ship_off.png")?;
-        let ship_speed1 = Image::new(ctx, "/ship_speed1.png")?;
-        let ship_speed2 = Image::new(ctx, "/ship_speed2.png")?;
-        let ship_speed3 = Image::new(ctx, "/ship_speed3.png")?;
-        let asteroid = Image::new(ctx, "/asteroid.png")?;
-
-        Ok(Assets {
-            ship_on,
-            ship_off,
-            ship_speed1,
-            ship_speed2,
-            ship_speed3,
-            asteroid,
-            font: Font::new(ctx, "/FiraMono.ttf", 13)?,
-        })
-    }
-    pub fn get_img(&self, s: Sprite) -> &Image {
-        use Sprite::*;
-
-        match s {
-            ShipOn => &self.ship_on,
-            ShipOff => &self.ship_off,
-            ShipSpeed1 => &self.ship_speed1,
-            ShipSpeed2 => &self.ship_speed2,
-            ShipSpeed3 => &self.ship_speed3,
-            Asteroid => &self.asteroid,
-        }
-    }
     pub fn text(&self, context: &mut Context, pos: Point2, text: &str) -> GameResult<PosText> {
         let text = Text::new(context, text, &self.font)?;
         Ok(PosText {
@@ -110,26 +104,8 @@ impl PosText {
     pub fn draw_text(&self, ctx: &mut Context) -> GameResult<()> {
         self.text.draw(ctx, self.pos, 0.)
     }
-    pub fn update_ra(&mut self, x: f32) {
-        self.pos = Point2::new(x - self.text.width() as f32, self.pos.y);
-    }
     pub fn update_text(&mut self, a: &Assets, ctx: &mut Context, text: &str) -> GameResult<()> {
         self.text = Text::new(ctx, text, &a.font)?;
         Ok(())
-    }
-}
-
-impl Drawable for PosText {
-    #[inline]
-    fn draw_ex(&self, ctx: &mut Context, param: DrawParam) -> GameResult<()> {
-        self.text.draw_ex(ctx, param)
-    }
-    #[inline]
-    fn set_blend_mode(&mut self, mode: Option<BlendMode>) {
-        self.text.set_blend_mode(mode)
-    }
-    #[inline]
-    fn get_blend_mode(&self) -> Option<BlendMode> {
-        self.text.get_blend_mode()
     }
 }
