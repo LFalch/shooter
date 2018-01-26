@@ -18,15 +18,15 @@ impl PhysObj {
     }
     #[inline]
     pub fn draw(&self, ctx: &mut Context, assets: &Assets) -> GameResult<()> {
-        self.obj.draw(ctx, assets)?;
-
+        self.obj.draw(ctx, assets)
+    }
+    pub fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
         let vel = self.pos+self.vel;
 
         graphics::set_color(ctx, GREEN)?;
         graphics::line(ctx, &[self.pos, vel], 2.)?;
         graphics::set_color(ctx, RED)?;
-        graphics::line(ctx, &[vel, vel + self.acc], 2.)?;
-        graphics::set_color(ctx, graphics::WHITE)
+        graphics::line(ctx, &[vel, vel + self.acc], 2.)
     }
     pub fn update(&mut self, dt: f32) {
         self.obj.pos += 0.5 * self.acc * dt * dt + self.vel * dt;

@@ -14,23 +14,8 @@ mod phys;
 use phys::*;
 mod tex;
 use tex::*;
-
-#[derive(Debug, Default)]
-struct InputState {
-    hor: i8,
-    ver: i8,
-}
-
-impl InputState {
-    #[inline]
-    fn hor(&self) -> f32 {
-        self.hor.signum() as f32
-    }
-    #[inline]
-    fn ver(&self) -> f32 {
-        self.ver.signum() as f32
-    }
-}
+mod ext;
+use ext::*;
 
 struct State {
     input: InputState,
@@ -39,6 +24,7 @@ struct State {
     height: u32,
     on_time: f32,
     rebound: bool,
+    lines: bool,
     spawn_coords: Option<Point2>,
     offset: Vector2,
     player: PhysObj,
@@ -70,6 +56,7 @@ impl State {
             on_time: 0.,
             spawn_coords: None,
             rebound: false,
+            lines: true,
             rot_text,
             pos_text,
             vel_text,
@@ -120,8 +107,6 @@ impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
 
-        let centre = Point2::new((self.width/2) as f32, (self.height/2) as f32);
-        self.asteroids.retain(|ast| na::distance(&ast.pos, &centre) <= centre.coords.norm());
         let width = self.width as f32;
         let height = self.height as f32;
 
@@ -206,6 +191,16 @@ impl EventHandler for State {
             ast.draw(ctx, &self.assets)?;
         }
 
+        if self.lines {
+            for ast in &self.asteroids {
+                ast.draw_lines(ctx)?;
+            }
+            self.player.draw_lines(ctx)?;
+        }
+
+        graphics::pop_transform(ctx);
+        graphics::apply_transformations(ctx)?;
+
         if let Some(proto_pos) = self.spawn_coords {
             let params = graphics::DrawParam {
                 dest: proto_pos,
@@ -215,9 +210,6 @@ impl EventHandler for State {
             };
             graphics::draw_ex(ctx, self.assets.get_img(Sprite::Asteroid), params)?;
         }
-
-        graphics::pop_transform(ctx);
-        graphics::apply_transformations(ctx)?;
 
         graphics::set_color(ctx, graphics::WHITE)?;
         self.pos_text.draw_text(ctx)?;
@@ -255,7 +247,9 @@ impl EventHandler for State {
             S | Down => self.input.ver += 1,
             A | Left => self.input.hor += 1,
             D | Right => self.input.hor -= 1,
-            K => self.rebound = !self.rebound,
+            K => self.rebound.toggle(),
+            L => self.lines.toggle(),
+            R => self.asteroids.clear(),
             _ => return,
         }
     }
@@ -267,16 +261,16 @@ impl EventHandler for State {
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, btn: MouseButton, x: i32, y: i32) {
         if let MouseButton::Left = btn {
             if let Some(p) = ::std::mem::replace(&mut self.spawn_coords, None) {
-                let mut ast = RotatableObj::new(p, Sprite::Asteroid, -0.2);
-                ast.vel = ast.pos - Point2::new(x as f32, y as f32);
+                let mut ast = RotatableObj::new(p - self.offset, Sprite::Asteroid, -0.2);
+                ast.vel = ast.pos - Point2::new(x as f32, y as f32) + self.offset;
                 self.asteroids.push(ast);
             }
         }
         if let MouseButton::Middle = btn {
-            self.player.pos = Point2::new(x as f32, y as f32);
+            self.player.pos = Point2::new(x as f32, y as f32) - self.offset;
         }
         if let MouseButton::Right = btn {
-            self.player.vel = Point2::new(x as f32, y as f32) - self.player.pos;
+            self.player.vel = Point2::new(x as f32, y as f32) - self.offset - self.player.pos;
         }
     }
 }
