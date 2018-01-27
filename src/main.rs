@@ -51,10 +51,18 @@ pub const RED: Color = Color{r:1.,g:0.,b:0.,a:0.5};
 pub const BLUE: Color = Color{r:0.,g:0.,b:1.,a:0.5};
 
 fn main() {
-    let mut ctx = ContextBuilder::new("shooter", "LFalch")
+    let mut ctx_builder = ContextBuilder::new("shooter", "LFalch")
         .window_setup(conf::WindowSetup::default().title("Shooter"))
-        .window_mode(conf::WindowMode::default().dimensions(1000, 750))
-        .build().unwrap();
+        .window_mode(conf::WindowMode::default().dimensions(1000, 750));
+
+    if std::env::args().any(|s| s == "--fullscreen") {
+        ctx_builder = ctx_builder.window_mode(conf::WindowMode::default()
+            .fullscreen_type(conf::FullscreenType::Desktop)
+            .dimensions(2560, 1440)
+        )
+    }
+
+    let mut ctx = ctx_builder.build().unwrap();
 
     if let Ok(manifest_dir) = ::std::env::var("CARGO_MANIFEST_DIR") {
         let mut path = ::std::path::PathBuf::from(manifest_dir);
