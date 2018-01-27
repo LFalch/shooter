@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![windows_subsystem = "windows"]
 //! Shooter game
 
 extern crate ggez;

@@ -252,4 +252,10 @@ impl EventHandler for State {
             self.world.player.vel = Point2::new(x as f32, y as f32) - self.offset - self.world.player.pos;
         }
     }
+    fn quit_event(&mut self, _ctx: &mut Context) -> bool {
+        println!("Closing, auto-saving game");
+        save::save("autosave.sav", &self.world);
+
+        false
+    }
 }
