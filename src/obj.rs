@@ -4,8 +4,9 @@ use ggez::nalgebra as na;
 
 use super::{Assets, Sprite};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Obj {
+    #[serde(serialize_with = "::save::point_ser", deserialize_with = "::save::point_des")]
     pub pos: Point2,
     pub spr: Sprite,
     pub rot: f32,

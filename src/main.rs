@@ -1,4 +1,8 @@
 extern crate ggez;
+extern crate bincode;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
 
 // use ggez::audio;
 use ggez::conf;
@@ -16,6 +20,7 @@ mod tex;
 use tex::*;
 mod ext;
 use ext::*;
+mod save;
 
 struct State {
     input: InputState,
@@ -250,6 +255,8 @@ impl EventHandler for State {
             K => self.rebound.toggle(),
             L => self.lines.toggle(),
             R => self.asteroids.clear(),
+            Z => save::save("save.sav", &self.player, &*self.asteroids),
+            X => save::load("save.sav", &mut self.player, &mut self.asteroids),
             _ => return,
         }
     }

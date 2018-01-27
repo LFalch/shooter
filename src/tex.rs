@@ -9,7 +9,7 @@ macro_rules! sprites {
         $height:expr,
         $radius: expr,
     )*) => (
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
         pub enum Sprite {
             $($name,)*
         }

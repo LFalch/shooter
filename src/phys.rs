@@ -1,10 +1,12 @@
 use std::ops::{Deref, DerefMut};
 use ::*;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PhysObj {
     pub obj: Obj,
+    #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
     pub vel: Vector2,
+    #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
     pub acc: Vector2,
 }
 
@@ -87,7 +89,7 @@ impl DerefMut for PhysObj {
         &mut self.obj
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RotatableObj {
     pub rot_vel: f32,
     pub obj: PhysObj,

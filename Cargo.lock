@@ -56,6 +56,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "byteorder 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "bitflags"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -880,8 +889,10 @@ dependencies = [
 name = "shooter"
 version = "0.1.0"
 dependencies = [
+ "bincode 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ggez 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1052,6 +1063,7 @@ dependencies = [
 "checksum approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08abcc3b4e9339e33a3d0a5ed15d84a687350c05689d825e0f6655eef9e76a94"
 "checksum arrayvec 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)" = "e003cbf6e0e1c43a0fc8df2ea8ea24174514d35cbcf60c35ca6112e0139f65e2"
 "checksum arrayvec 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2f0ef4a9820019a0c91d918918c93dc71d469f581a49b47ddc1d285d4270bbe2"
+"checksum bincode 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9a6301db0b49fb63551bc15b5ae348147101cdf323242b93ec7546d5002ff1af"
 "checksum bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aad18937a628ec6abcd26d1489012cc0e18c21798210f491af69ded9b881106d"
 "checksum bitflags 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1370e9fc2a6ae53aea8b7a5110edbd08836ed87c88736dfabccade1c2b44bff4"
 "checksum bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b3c30d3802dfb7281680d6285f2ccdaa8c2d8fee41f93805dba5c4cf50dc23cf"
