@@ -2,15 +2,20 @@ use std::ops::{Deref, DerefMut};
 use ::*;
 
 #[derive(Debug, Deserialize, Serialize)]
+/// An object with physical behaviour such as velocity and acceleration
 pub struct PhysObj {
+    /// The inner `Obj` that it dereferences to
     pub obj: Obj,
     #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
+    /// The velocity of the object
     pub vel: Vector2,
     #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
+    /// The acceleration of the object
     pub acc: Vector2,
 }
 
 impl PhysObj {
+    /// Make a new physical object
     pub fn new(pos: Point2, sprite: Sprite) -> Self {
         PhysObj {
             obj: Obj::new(pos, sprite),
@@ -19,9 +24,11 @@ impl PhysObj {
         }
     }
     #[inline]
+    /// Draw it
     pub fn draw(&self, ctx: &mut Context, assets: &Assets) -> GameResult<()> {
         self.obj.draw(ctx, assets)
     }
+    /// Draw vectors of the velocity and acceleration
     pub fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
         let vel = self.pos+self.vel;
 
@@ -30,6 +37,7 @@ impl PhysObj {
         graphics::set_color(ctx, RED)?;
         graphics::line(ctx, &[vel, vel + self.acc], 2.)
     }
+    /// Update its position and velocity using basic physics
     pub fn update(&mut self, dt: f32) {
         self.obj.pos += 0.5 * self.acc * dt * dt + self.vel * dt;
         self.vel += self.acc * dt;
@@ -90,8 +98,13 @@ impl DerefMut for PhysObj {
     }
 }
 #[derive(Debug, Serialize, Deserialize)]
+/// An object with a rotational velocity
+///
+/// Dereferences to a `PhysObj`
 pub struct RotatableObj {
+    /// The rotation in radians per second
     pub rot_vel: f32,
+    /// The inner physics object
     pub obj: PhysObj,
 }
 
@@ -108,12 +121,14 @@ impl DerefMut for RotatableObj {
 }
 
 impl RotatableObj {
+    /// Make a rotatable object
     pub fn new(pos: Point2, sprite: Sprite, rot_vel: f32) -> Self {
         RotatableObj {
             obj: PhysObj::new(pos, sprite),
             rot_vel
         }
     }
+    /// Update its rotation and the inner physics object
     pub fn update(&mut self, dt: f32) {
         self.obj.update(dt);
         self.obj.obj.rot += self.rot_vel * dt;

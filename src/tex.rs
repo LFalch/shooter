@@ -10,11 +10,14 @@ macro_rules! sprites {
         $radius: expr,
     )*) => (
         #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+        /// An object to reference a sprite in the `Assets`
+        #[allow(missing_docs)]
         pub enum Sprite {
             $($name,)*
         }
 
         impl Sprite {
+            /// Width of the sprite
             pub fn width(&self) -> f32 {
                 match *self {
                     $(
@@ -22,6 +25,7 @@ macro_rules! sprites {
                     )*
                 }
             }
+            /// Height of the sprite
             pub fn height(&self) -> f32 {
                 match *self {
                     $(
@@ -29,6 +33,7 @@ macro_rules! sprites {
                     )*
                 }
             }
+            /// Radius to use with collision physics
             pub fn radius(&self) -> f32 {
                 match *self {
                     $(
@@ -37,14 +42,17 @@ macro_rules! sprites {
                 }
             }
         }
+        /// All the assets
         pub struct Assets {
             $(
                 $tex: Image,
             )*
+            /// The font used for all the text
             pub font: Font,
         }
 
         impl Assets {
+            /// Initialises the assets with the context
             pub fn new(ctx: &mut Context) -> GameResult<Self> {
                 $(
                     let $tex = Image::new(ctx, concat!("/", stringify!($tex), ".png"))?;
@@ -57,6 +65,7 @@ macro_rules! sprites {
                     font: Font::new(ctx, "/FiraMono.ttf", 13)?,
                 }))
             }
+            /// Gets the `Image` to draw from the sprite
             pub fn get_img(&self, s: Sprite) -> &Image {
                 match s {
                     $(
@@ -78,6 +87,7 @@ sprites! {
 }
 
 impl Assets {
+    /// Make a positional text object
     pub fn text(&self, context: &mut Context, pos: Point2, text: &str) -> GameResult<PosText> {
         let text = Text::new(context, text, &self.font)?;
         Ok(PosText {
@@ -85,6 +95,7 @@ impl Assets {
             text
         })
     }
+    /// Make a postional text object from the right side of the screen
     pub fn text_ra(&self, context: &mut Context, x: f32, y: f32, text: &str) -> GameResult<PosText> {
         let text = Text::new(context, text, &self.font)?;
         Ok(PosText{
@@ -95,15 +106,18 @@ impl Assets {
 }
 
 #[derive(Debug, Clone)]
+/// A text with a position
 pub struct PosText {
     pos: Point2,
     text: Text
 }
 
 impl PosText {
+    /// Draw the text
     pub fn draw_text(&self, ctx: &mut Context) -> GameResult<()> {
         self.text.draw(ctx, self.pos, 0.)
     }
+    /// Update the text
     pub fn update_text(&mut self, a: &Assets, ctx: &mut Context, text: &str) -> GameResult<()> {
         self.text = Text::new(ctx, text, &a.font)?;
         Ok(())
