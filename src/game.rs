@@ -157,6 +157,10 @@ impl EventHandler for State {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
+        let bg = Sprite::StarsBg;
+
+        graphics::draw(ctx, self.assets.get_img(bg), Point2::new(0., 0.), 0.)?;
+
         graphics::push_transform(ctx, Some(Matrix4::new_translation(&self.offset.fixed_resize(0.))));
         graphics::apply_transformations(ctx)?;
 

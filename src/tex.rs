@@ -84,6 +84,7 @@ sprites! {
     ShipSpeed2, ship_speed2, 48., 48., 20.,
     ShipSpeed3, ship_speed3, 48., 48., 20.,
     Asteroid, asteroid, 48., 48., 24.,
+    StarsBg, stars_bg, 2560., 1440., 0./0.,
 }
 
 impl Assets {
