@@ -5,16 +5,15 @@ use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use ::*;
 
 /// Save the state in a file
-pub fn save<P: AsRef<Path>>(path: P, p: &PhysObj, asts: &[RotatableObj]) {
+pub fn save<P: AsRef<Path>>(path: P, w: &World) {
     let mut file = File::create(path).unwrap();
-    bincode::serialize_into(&mut file, &(p, asts), bincode::Infinite).unwrap();
+    bincode::serialize_into(&mut file, w, bincode::Infinite).unwrap();
 }
 /// Load the state from a file
-pub fn load<P: AsRef<Path>>(path: P, p: &mut PhysObj, asts: &mut Vec<RotatableObj>) {
+pub fn load<P: AsRef<Path>>(path: P, w: &mut World) {
     let mut file = File::open(path).unwrap();
-    let (p_, asts_) = bincode::deserialize_from(&mut file, bincode::Infinite).unwrap();
-    *p = p_;
-    *asts = asts_;
+    let world = bincode::deserialize_from(&mut file, bincode::Infinite).unwrap();
+    *w = world;
 }
 /// Serialize a `Point2`
 pub fn point_ser<S: Serializer>(p: &Point2, ser: S) -> Result<S::Ok, S::Error> {
