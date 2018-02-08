@@ -28,7 +28,7 @@ impl PhysObj {
     pub fn draw(&self, ctx: &mut Context, assets: &Assets) -> GameResult<()> {
         self.obj.draw(ctx, assets)
     }
-    /// Draw vectors of the velocity and acceleration
+    /// Draw vectors of the velocity and acceleration from this object
     pub fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
         let vel = self.pos+self.vel;
 
@@ -131,6 +131,6 @@ impl RotatableObj {
     /// Update its rotation and the inner physics object
     pub fn update(&mut self, dt: f32) {
         self.obj.update(dt);
-        self.obj.obj.rot += self.rot_vel * dt;
+        self.rot += self.rot_vel * dt;
     }
 }

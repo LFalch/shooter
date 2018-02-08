@@ -6,6 +6,7 @@ pub trait BoolExt {
 
 impl BoolExt for bool {
     fn toggle(&mut self) {
+        // so `true` becomes `false` and vice versa
         *self = !*self;
     }
 }

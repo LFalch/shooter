@@ -77,6 +77,7 @@ macro_rules! sprites {
     );
 }
 
+/// Load all assets and specify their dimensions
 sprites! {
     ShipOn, ship_on, 48., 48., 20.,
     ShipOff, ship_off, 48., 48., 20.,
@@ -108,6 +109,8 @@ impl Assets {
 
 #[derive(Debug, Clone)]
 /// A text with a position
+///
+/// Used for convenience so it's easier to update the text and rememeber their coordinates on the screen
 pub struct PosText {
     pos: Point2,
     text: Text
