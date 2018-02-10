@@ -14,8 +14,6 @@ pub struct Obj {
     pub rot: f32,
 }
 
-use std::f32::consts::FRAC_PI_2;
-
 impl Obj {
     /// Make a new object with a sprite and a position
     pub fn new(pos: Point2, radius: f32) -> Self {
@@ -29,8 +27,7 @@ impl Obj {
     pub fn draw(&self, ctx: &mut Context, img: &Image) -> GameResult<()> {
         let drawparams = graphics::DrawParam {
             dest: self.pos,
-            // Add half pi to make it consistent with maths functions
-            rotation: self.rot + FRAC_PI_2,
+            rotation: self.rot,
             offset: Point2::new(0.5, 0.5),
             .. Default::default()
         };
