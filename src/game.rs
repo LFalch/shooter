@@ -6,6 +6,7 @@ pub struct World {
     player: PhysObj,
     asteroids: Vec<PhysObj>,
     fuels: Vec<PhysObj>,
+    player_fuel: f64,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -87,7 +88,6 @@ pub struct State {
     offset: Vector2,
     world: World,
     engine: EngineMode,
-    fuel: f64,
     fuel_text: PosText,
     fuel_usg_text: PosText,
     engine_mode_text: PosText,
@@ -118,7 +118,6 @@ impl State {
             ast_spawn_coords: None,
             fuel_spawn_coords: None,
             lines: false,
-            fuel: 2e4,
             fuel_text,
             fuel_usg_text,
             engine_mode_text,
@@ -126,6 +125,7 @@ impl State {
             offset: Vector2::new(0., 0.),
             engine: EngineMode::Off,
             world: World {
+                player_fuel: 2e3,
                 // The world starts of with one asteroid at (150, 150)
                 asteroids: vec![PhysObj::new(Point2::new(150., 150.), Sprite::Asteroid.radius())],
                 // Initalise the player in the middle of the screen
@@ -137,7 +137,7 @@ impl State {
     /// Update the text objects
     fn update_ui(&mut self, ctx: &mut Context) {
         // Using formatting to round of the numbers to 2 decimals (the `.2` part)
-        let fuel_str = format!("Fuel: {:8.2} L", self.fuel);
+        let fuel_str = format!("Fuel: {:8.2} L", self.world.player_fuel);
         let fuel_usg_str = format!("Fuel Usage: {:4} L/s", self.engine.fuel_usage());
         let engine_mode_str = format!("Engine mode: {:7?}", self.engine);
 
@@ -193,7 +193,7 @@ impl EventHandler for State {
             self.world.player.obj.rot += 1.7 * self.input.hor() * DELTA;
             // Set the acceleration of the player object according to the direction pointed and the vertical input axis
             self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
-            self.fuel -= self.engine.fuel_usage() * DDELTA;
+            self.world.player_fuel -= self.engine.fuel_usage() * DDELTA;
 
             // Update the player object
             self.world.player.update(DELTA);
