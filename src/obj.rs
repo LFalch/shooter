@@ -1,8 +1,6 @@
 use ggez::{Context, GameResult};
-use ggez::graphics::{self, Point2};
+use ggez::graphics::{self, Point2, Image};
 use ggez::nalgebra as na;
-
-use super::{Assets, Sprite};
 
 #[derive(Debug, Serialize, Deserialize)]
 /// A simple object that can be drawn to the screen
@@ -10,8 +8,8 @@ pub struct Obj {
     #[serde(serialize_with = "::save::point_ser", deserialize_with = "::save::point_des")]
     /// The position of the object
     pub pos: Point2,
-    /// The sprite to draw the object with
-    pub spr: Sprite,
+    /// The radius of the object used for collision
+    pub rad: f32,
     /// The rotation of the obejct in radians
     pub rot: f32,
 }
@@ -20,15 +18,15 @@ use std::f32::consts::FRAC_PI_2;
 
 impl Obj {
     /// Make a new object with a sprite and a position
-    pub fn new(pos: Point2, sprite: Sprite) -> Self {
+    pub fn new(pos: Point2, radius: f32) -> Self {
         Obj {
             pos,
-            spr: sprite,
+            rad: radius,
             rot: 0.
         }
     }
     /// Draw the object
-    pub fn draw(&self, ctx: &mut Context, assets: &Assets) -> GameResult<()> {
+    pub fn draw(&self, ctx: &mut Context, img: &Image) -> GameResult<()> {
         let drawparams = graphics::DrawParam {
             dest: self.pos,
             // Add half pi to make it consistent with maths functions
@@ -36,12 +34,12 @@ impl Obj {
             offset: Point2::new(0.5, 0.5),
             .. Default::default()
         };
-        graphics::draw_ex(ctx, assets.get_img(self.spr), drawparams)
+        graphics::draw_ex(ctx, img, drawparams)
     }
     /// Check if it collides with another object (circle collision)
     pub fn collides(&self, oth: &Self) -> bool {
         // If the distance is lower than the sum of the radii of the objects, they're colliding
-        na::distance(&self.pos, &oth.pos) <= self.spr.radius() + oth.spr.radius()
+        na::distance(&self.pos, &oth.pos) <= self.rad + oth.rad
     }
     /// Move the objects so they only barely don't collide
     ///
@@ -55,7 +53,7 @@ impl Obj {
         let diff_vec = self.pos - oth.pos;
         let dir = na::normalize(&diff_vec);
 
-        let diff = (self.spr.radius()+oth.spr.radius())/2. * dir;
+        let diff = (self.rad + oth.rad) / 2. * dir;
 
         self.pos = center + diff;
         oth.pos = center - diff;

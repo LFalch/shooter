@@ -4,7 +4,74 @@ use ::*;
 /// All the objects in the current world
 pub struct World {
     player: PhysObj,
-    asteroids: Vec<RotatableObj>,
+    asteroids: Vec<PhysObj>,
+    fuels: Vec<PhysObj>,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+/// The mode the engine is turned into
+pub enum EngineMode {
+    /// Thrust 1
+    Thrust1,
+    /// Thrust 2
+    Thrust2,
+    /// Engine is on
+    On,
+    /// Engine is off
+    Off,
+}
+
+impl EngineMode {
+    /// The fuel usage from the current engine mode
+    pub fn fuel_usage(&self) -> f64 {
+        match *self {
+            EngineMode::Off => 0.,
+            EngineMode::On => 0.01,
+            EngineMode::Thrust1 => 10.,
+            EngineMode::Thrust2 => 25.,
+        }
+    }
+    /// The amount of thrust from the current engine mode
+    pub fn acceleration(&self) -> f32 {
+        match *self {
+            EngineMode::Off => 0.,
+            EngineMode::On => 0.1,
+            EngineMode::Thrust1 => 35.,
+            EngineMode::Thrust2 => 72.,
+        }
+    }
+    /// The sprite of the ship with the current engine mode
+    pub fn sprite(&self) -> Sprite {
+        match *self {
+            EngineMode::Off => Sprite::ShipOff,
+            EngineMode::On => Sprite::ShipOn,
+            EngineMode::Thrust1 => Sprite::ShipSpeed2,
+            EngineMode::Thrust2 => Sprite::ShipSpeed3,
+        }
+    }
+    /// Toggles the engine on and off
+    pub fn toggle(&mut self) {
+        match *self {
+            EngineMode::Off => *self = EngineMode::On,
+            _ => *self = EngineMode::Off,
+        }
+    }
+    /// Turns the engine up a mode (saturating)
+    pub fn up(&mut self) {
+        match *self {
+            EngineMode::Off | EngineMode::Thrust2 => (),
+            EngineMode::On => *self = EngineMode::Thrust1,
+            EngineMode::Thrust1 => *self = EngineMode::Thrust2,
+        }
+    }
+    /// Turns the engine down a mode (saturating)
+    pub fn down(&mut self) {
+        match *self {
+            EngineMode::Off | EngineMode::On => (),
+            EngineMode::Thrust1 => *self = EngineMode::On,
+            EngineMode::Thrust2 => *self = EngineMode::Thrust1,
+        }
+    }
 }
 
 /// The state of the game
@@ -13,18 +80,16 @@ pub struct State {
     assets: Assets,
     width: u32,
     height: u32,
-    // To keep track of how long the engines have been running
-    on_time: f32,
-
-    rebound: bool,
     lines: bool,
-    spawn_coords: Option<Point2>,
+    ast_spawn_coords: Option<Point2>,
+    fuel_spawn_coords: Option<Point2>,
     offset: Vector2,
     world: World,
-    rot_text: PosText,
-    vel_text: PosText,
-    pos_text: PosText,
-    acc_text: PosText,
+    engine: EngineMode,
+    fuel: f64,
+    fuel_text: PosText,
+    fuel_usg_text: PosText,
+    engine_mode_text: PosText,
 }
 
 impl State {
@@ -40,49 +105,43 @@ impl State {
         let height = ctx.conf.window_mode.height;
 
         // Initialise the text objects
-        let acc_text = assets.text(ctx, Point2::new(2.0, 0.0), "Acc: (0.00, 0.00)")?;
-        let pos_text = assets.text(ctx, Point2::new(2.0, 14.0), "Pos: (0.00, 0.00)")?;
-        let vel_text = assets.text(ctx, Point2::new(2.0, 28.0), "Vel: (0.00, 0.00)")?;
-        let rot_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Rotation: {:6.2}")?;
+        let fuel_text = assets.text(ctx, Point2::new(2.0, 0.0), "Fuel: 99999.99 L")?;
+        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 14.0), "Fuel Usage: 33.3 L/s")?;
+        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine mode: thrust1")?;
 
         Ok(State {
             input: Default::default(),
             assets,
             width,
             height,
-            on_time: 0.,
-            spawn_coords: None,
-            rebound: false,
-            lines: true,
-            rot_text,
-            pos_text,
-            vel_text,
-            acc_text,
+            ast_spawn_coords: None,
+            fuel_spawn_coords: None,
+            lines: false,
+            fuel: 2e4,
+            fuel_text,
+            fuel_usg_text,
+            engine_mode_text,
             offset: Vector2::new(0., 0.),
+            engine: EngineMode::Off,
             world: World {
                 // The world starts of with one asteroid at (150, 150)
-                asteroids: vec![RotatableObj::new(Point2::new(150., 150.), Sprite::Asteroid, 0.1)],
+                asteroids: vec![PhysObj::new(Point2::new(150., 150.), Sprite::Asteroid.radius())],
                 // Initalise the player in the middle of the screen
-                player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff)
+                player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff.radius()),
+                fuels: Vec::new(),
             }
         })
     }
     /// Update the text objects
     fn update_ui(&mut self, ctx: &mut Context) {
         // Using formatting to round of the numbers to 2 decimals (the `.2` part)
-        let pos_str = format!("Pos: ({:8.2}, {:8.2})", self.world.player.obj.pos.x, self.world.player.obj.pos.y);
-        let vel_str = format!("Vel: ({:8.2}, {:8.2}) (Mag: {:4.1})", self.world.player.vel.x, self.world.player.vel.y, self.world.player.vel.norm());
-        let acc_str = format!("Acc: ({:8.2}, {:8.2}) (Mag: {:4.1}) Asteroids: {:2}", self.world.player.acc.x, self.world.player.acc.y, self.world.player.acc.norm(), self.world.asteroids.len());
-        self.world.player.obj.rot %= 2.*::std::f32::consts::PI;
-        let mut rot = self.world.player.obj.rot * 180./::std::f32::consts::PI;
-        if rot < 0. {
-            rot += 360.;
-        }
-        let rot_str = format!("Rotation: {:6.2}", rot);
-        self.pos_text.update_text(&self.assets, ctx, &pos_str).unwrap();
-        self.vel_text.update_text(&self.assets, ctx, &vel_str).unwrap();
-        self.acc_text.update_text(&self.assets, ctx, &acc_str).unwrap();
-        self.rot_text.update_text(&self.assets, ctx, &rot_str).unwrap();
+        let fuel_str = format!("Fuel: {:8.2} L", self.fuel);
+        let fuel_usg_str = format!("Fuel Usage: {:4} L/s", self.engine.fuel_usage());
+        let engine_mode_str = format!("Engine mode: {:7?}", self.engine);
+
+        self.fuel_text.update_text(&self.assets, ctx, &fuel_str).unwrap();
+        self.fuel_usg_text.update_text(&self.assets, ctx, &fuel_usg_str).unwrap();
+        self.engine_mode_text.update_text(&self.assets, ctx, &engine_mode_str).unwrap();
     }
     /// Sets the offset so that the given point will be centered on the screen
     fn focus_on(&mut self, p: Point2) {
@@ -121,59 +180,42 @@ impl EventHandler for State {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
 
-        let width = self.width as f32;
-        let height = self.height as f32;
-
         // Run this for every 1/60 of a second has passed since last update
         // Can in theory become slow
         while timer::check_update_time(ctx, DESIRED_FPS) {
             const DELTA: f32 = 1. / DESIRED_FPS as f32;
+            const DDELTA: f64 = 1. / DESIRED_FPS as f64;
 
-            // If there is no input on the vertical axis (W,S or up,down arrows)
-            // set the `on_time` zero and make the sprite a turned off ship
-            // otherwise turn on the ship and add onto its `on_time`
-            if self.input.ver != 0 {
-                self.on_time += DELTA;
-                self.world.player.obj.spr = Sprite::ShipOn;
-            } else {
-                self.on_time = 0.;
-                self.world.player.obj.spr = Sprite::ShipOff;
-            }
-            // Set the acceleration and sprite based on the `on_time`
-            let acc;
-            if self.on_time > 0.5 {
-                if self.on_time > 1.5 {
-                    if self.on_time > 2.3 {
-                        self.world.player.obj.spr = Sprite::ShipSpeed3;
-                        acc = 65.;
-                    } else {
-                        self.world.player.obj.spr = Sprite::ShipSpeed2;
-                        acc = 50.;
-                    }
-                } else {
-                    self.world.player.obj.spr = Sprite::ShipSpeed1;
-                    acc = 30.;
-                }
-            } else {
-                acc = 10.;
-            }
+            let acc = self.engine.acceleration();
             // Rotate player if horizontal keys (A,D or left, right arrows)
             self.world.player.obj.rot += 1.7 * self.input.hor() * DELTA;
             // Set the acceleration of the player object according to the direction pointed and the vertical input axis
-            self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot) * self.input.ver();
+            self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
+            self.fuel -= self.engine.fuel_usage() * DDELTA;
 
             // Update the player object
             self.world.player.update(DELTA);
-            // If rebound is turned on, check rebound of the player
-            if self.rebound {
-                self.world.player.rebound(width, height);
+
+            for fuel in &mut self.world.fuels {
+                fuel.update(DELTA);
+                if self.world.player.collides(&fuel) {
+                    self.world.player.uncollide(fuel);
+                    self.world.player.elastic_collide(fuel);
+                }
+            }
+            for ast in &mut self.world.asteroids {
+                ast.update(DELTA);
+                if self.world.player.collides(&ast) {
+                    self.world.player.uncollide(ast);
+                    self.world.player.elastic_collide(ast);
+                }
             }
 
             // Compare each asteroid with the other to see if they collide
             for i in 0..self.world.asteroids.len() {
                 for j in i+1..self.world.asteroids.len() {
                     // To avoid having two mutable references to the same object we have to move it out first
-                    let mut oth = std::mem::replace(&mut self.world.asteroids[j], RotatableObj::new(Point2::new(0., 0.), Sprite::Asteroid, 0.));
+                    let mut oth = std::mem::replace(&mut self.world.asteroids[j], PhysObj::new(Point2::new(0., 0.), Sprite::Asteroid.radius()));
                     // Check and resolve collision
                     if self.world.asteroids[i].collides(&oth) {
                         self.world.asteroids[i].uncollide(&mut oth);
@@ -183,29 +225,35 @@ impl EventHandler for State {
                     self.world.asteroids[j] = oth;
                 }
             }
-
-            // Update each asteroid and check for collisions and rebound
-            for ast in &mut self.world.asteroids {
-                ast.update(DELTA);
-                if self.rebound {
-                    ast.rebound(width, height);
+            for i in 0..self.world.fuels.len() {
+                for j in i+1..self.world.fuels.len() {
+                    // To avoid having two mutable references to the same object we have to move it out first
+                    let mut oth = std::mem::replace(&mut self.world.fuels[j], PhysObj::new(Point2::new(0., 0.), Sprite::Fuel.radius()));
+                    // Check and resolve collision
+                    if self.world.fuels[i].collides(&oth) {
+                        self.world.fuels[i].uncollide(&mut oth);
+                        self.world.fuels[i].elastic_collide(&mut oth);
+                    }
+                    // Reset the asteroid we pulled out
+                    self.world.fuels[j] = oth;
                 }
-                if self.world.player.collides(&ast) {
-                    self.world.player.uncollide(ast);
-                    self.world.player.elastic_collide(ast);
+            }
+            for fuel in &mut self.world.fuels {
+                for ast in &mut self.world.asteroids {
+                    if fuel.collides(&ast) {
+                        fuel.uncollide(ast);
+                        fuel.elastic_collide(ast);
+                    }
                 }
             }
         }
+        self.world.player.obj.rot %= 2.*::std::f32::consts::PI;
 
         // Update the UI
         self.update_ui(ctx);
-        // If rebound is turned off, center the camera on the player
-        if !self.rebound {
-            let p = self.world.player.pos;
-            self.focus_on(p);
-        } else {
-            self.offset = Vector2::new(0., 0.);
-        }
+        // Center the camera on the player
+        let p = self.world.player.pos;
+        self.focus_on(p);
 
         Ok(())
     }
@@ -221,15 +269,22 @@ impl EventHandler for State {
         graphics::apply_transformations(ctx)?;
 
         // Draw player and asteroids
-        self.world.player.draw(ctx, &self.assets)?;
+        let s = self.engine.sprite();
+        self.world.player.draw(ctx, self.assets.get_img(s))?;
         for ast in &self.world.asteroids {
-            ast.draw(ctx, &self.assets)?;
+            ast.draw(ctx, self.assets.get_img(Sprite::Asteroid))?;
+        }
+        for fuel in &self.world.fuels {
+            fuel.draw(ctx, self.assets.get_img(Sprite::Fuel))?;
         }
 
         // If lines is turned on, draw lines for the velocity and acceleration vectors from the objects
         if self.lines {
             for ast in &self.world.asteroids {
                 ast.draw_lines(ctx)?;
+            }
+            for fuel in &self.world.fuels {
+                fuel.draw_lines(ctx)?;
             }
             self.world.player.draw_lines(ctx)?;
         }
@@ -239,7 +294,7 @@ impl EventHandler for State {
         graphics::apply_transformations(ctx)?;
 
         // Check if an asteroid is being spawned
-        if let Some(proto_pos) = self.spawn_coords {
+        if let Some(proto_pos) = self.ast_spawn_coords {
             // Draw the asteroid transparently so you can see you're making an asteroid
             let params = graphics::DrawParam {
                 dest: proto_pos,
@@ -249,13 +304,22 @@ impl EventHandler for State {
             };
             graphics::draw_ex(ctx, self.assets.get_img(Sprite::Asteroid), params)?;
         }
+        if let Some(proto_pos) = self.fuel_spawn_coords {
+            // Draw the asteroid transparently so you can see you're making an asteroid
+            let params = graphics::DrawParam {
+                dest: proto_pos,
+                offset: Point2::new(0.5, 0.5),
+                color: Some(TRANS),
+                .. Default::default()
+            };
+            graphics::draw_ex(ctx, self.assets.get_img(Sprite::Fuel), params)?;
+        }
 
         // Draw the text in white
         graphics::set_color(ctx, graphics::WHITE)?;
-        self.pos_text.draw_text(ctx)?;
-        self.vel_text.draw_text(ctx)?;
-        self.acc_text.draw_text(ctx)?;
-        self.rot_text.draw_text(ctx)?;
+        self.fuel_text.draw_text(ctx)?;
+        self.fuel_usg_text.draw_text(ctx)?;
+        self.engine_mode_text.draw_text(ctx)?;
 
         // Flip the buffers to see what we just drew
         graphics::present(ctx);
@@ -289,7 +353,7 @@ impl EventHandler for State {
         }
         use Keycode::*;
         // Update input axes in the opposite direction
-        // Toggle rebound and lines on respectively K and L
+        // Toggle lines on L
         // Clear all asteroids on R
         // Save the current `world` on Z
         // Load the last save on X
@@ -298,11 +362,13 @@ impl EventHandler for State {
             S | Down => self.input.ver += 1,
             A | Left => self.input.hor += 1,
             D | Right => self.input.hor -= 1,
-            K => self.rebound.toggle(),
             L => self.lines.toggle(),
             R => self.world.asteroids.clear(),
-            Z => save::save("save.sav", &self.world),
-            X => save::load("save.sav", &mut self.world),
+            I => self.engine.toggle(),
+            Q => self.engine.down(),
+            E => self.engine.up(),
+            Z => save::save("save.sav", &self.world).unwrap(),
+            X => save::load("save.sav", &mut self.world).unwrap(),
             _ => return,
         }
     }
@@ -310,39 +376,42 @@ impl EventHandler for State {
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, btn: MouseButton, x: i32, y: i32) {
         // Set the spawn_coords so we can spawn an asteroid when the button is released
         if let MouseButton::Left = btn {
-            self.spawn_coords = Some(Point2::new(x as f32, y as f32));
+            self.ast_spawn_coords = Some(Point2::new(x as f32, y as f32));
+        }
+        if let MouseButton::Right = btn {
+            self.fuel_spawn_coords = Some(Point2::new(x as f32, y as f32));
         }
     }
     /// Handle mouse release events
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, btn: MouseButton, x: i32, y: i32) {
         if let MouseButton::Left = btn {
             // Get the spawn_coords and replace them with `None`
-            if let Some(p) = ::std::mem::replace(&mut self.spawn_coords, None) {
+            if let Some(p) = ::std::mem::replace(&mut self.ast_spawn_coords, None) {
                 // Make a new asteroid object wherever the mouse pointed when the button was pressed down
-                let mut ast = RotatableObj::new(p - self.offset, Sprite::Asteroid, -0.2);
+                let mut ast = PhysObj::new(p - self.offset, Sprite::Asteroid.radius());
                 // Set the velocity so it moves towards where the mouse is now
                 ast.vel = ast.pos - Point2::new(x as f32, y as f32) + self.offset;
-                if self.offset != Vector2::new(0., 0.) {
-                    // If we're following the player we want it to move relative to the player
-                    ast.vel += self.world.player.vel;
-                }
+                ast.vel += self.world.player.vel;
                 // Push it to the asteroids vector ("dynamic array" not a maths vector)
                 self.world.asteroids.push(ast);
             }
         }
-        // Move the player to the mouse cursor
-        if let MouseButton::Middle = btn {
-            self.world.player.pos = Point2::new(x as f32, y as f32) - self.offset;
-        }
-        // Set the player velocity to go towards the mouse
         if let MouseButton::Right = btn {
-            self.world.player.vel = Point2::new(x as f32, y as f32) - self.offset - self.world.player.pos;
+            // Get the spawn_coords and replace them with `None`
+            if let Some(p) = ::std::mem::replace(&mut self.fuel_spawn_coords, None) {
+                // Make a new object wherever the mouse pointed when the button was pressed down
+                let mut fuel = PhysObj::new(p - self.offset, Sprite::Fuel.radius());
+                // Set the velocity so it moves towards where the mouse is now
+                fuel.vel = fuel.pos - Point2::new(x as f32, y as f32) + self.offset;
+                fuel.vel += self.world.player.vel;
+                self.world.fuels.push(fuel);
+            }
         }
     }
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
         println!("Closing, auto-saving game");
         // Save the world state to a file
-        save::save("autosave.sav", &self.world);
+        save::save("autosave.sav", &self.world).unwrap();
 
         false
     }
