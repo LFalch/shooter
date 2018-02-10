@@ -88,7 +88,33 @@ impl State {
     fn focus_on(&mut self, p: Point2) {
         self.offset = -p.coords + 0.5 * Vector2::new(self.width as f32, self.height as f32);
     }
+    /// Draws repeating parallax background
+    pub fn draw_bg(&mut self, ctx: &mut Context, scale: f32, s: Sprite) -> GameResult<()> {
+        let p = scale * self.offset;
+        let mut x = p.x;
+        let mut y = p.y;
+
+        let (w, h) = (s.width(), s.height());
+
+        while x < 0. {
+            x += w;
+        }
+        x %= w;
+        while y < 0. {
+            y += h;
+        }
+        y %= h;
+
+        let img = self.assets.get_img(s);
+        graphics::draw(ctx, img, Point2::new(x, y), 0.)?;
+        graphics::draw(ctx, img, Point2::new(x-w, y), 0.)?;
+        graphics::draw(ctx, img, Point2::new(x, y-h), 0.)?;
+        graphics::draw(ctx, img, Point2::new(x-w, y-h), 0.)?;
+
+        Ok(())
+    }
 }
+
 
 impl EventHandler for State {
     // Handle the game logic
@@ -188,9 +214,7 @@ impl EventHandler for State {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         // Clear the screen first
         graphics::clear(ctx);
-        let bg = Sprite::StarsBg;
-        // Draw a background
-        graphics::draw(ctx, self.assets.get_img(bg), Point2::new(0., 0.), 0.)?;
+        self.draw_bg(ctx, 0.1, Sprite::StarsBg)?;
 
         // Offset the current drawing with a translation from the `offset`
         graphics::push_transform(ctx, Some(Matrix4::new_translation(&self.offset.fixed_resize(0.))));
