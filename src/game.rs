@@ -80,6 +80,7 @@ pub struct State {
     assets: Assets,
     width: u32,
     height: u32,
+    mouse: Point2,
     lines: bool,
     ast_spawn_coords: Option<Point2>,
     fuel_spawn_coords: Option<Point2>,
@@ -121,6 +122,7 @@ impl State {
             fuel_text,
             fuel_usg_text,
             engine_mode_text,
+            mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
             engine: EngineMode::Off,
             world: World {
@@ -303,6 +305,10 @@ impl EventHandler for State {
                 .. Default::default()
             };
             graphics::draw_ex(ctx, self.assets.get_img(Sprite::Asteroid), params)?;
+            if self.lines {
+                graphics::set_color(ctx, GREEN)?;
+                graphics::line(ctx, &[proto_pos, proto_pos - (self.mouse-proto_pos)], 2.)?;
+            }
         }
         if let Some(proto_pos) = self.fuel_spawn_coords {
             // Draw the asteroid transparently so you can see you're making an asteroid
@@ -313,6 +319,10 @@ impl EventHandler for State {
                 .. Default::default()
             };
             graphics::draw_ex(ctx, self.assets.get_img(Sprite::Fuel), params)?;
+            if self.lines {
+                graphics::set_color(ctx, GREEN)?;
+                graphics::line(ctx, &[proto_pos, proto_pos - (self.mouse-proto_pos)], 2.)?;
+            }
         }
 
         // Draw the text in white
@@ -407,6 +417,10 @@ impl EventHandler for State {
                 self.world.fuels.push(fuel);
             }
         }
+    }
+    /// Handles mouse movement events
+    fn mouse_motion_event(&mut self, _: &mut Context, _: MouseState, x: i32, y: i32, _: i32, _: i32) {
+        self.mouse = Point2::new(x as f32, y as f32);
     }
     fn quit_event(&mut self, _ctx: &mut Context) -> bool {
         println!("Closing, auto-saving game");
