@@ -188,12 +188,21 @@ impl EventHandler for State {
             const DELTA: f32 = 1. / DESIRED_FPS as f32;
             const DDELTA: f64 = 1. / DESIRED_FPS as f64;
 
-            let acc = self.engine.acceleration();
             // Rotate player if horizontal keys (A,D or left, right arrows)
             self.world.player.obj.rot += 1.7 * self.input.hor() * DELTA;
-            // Set the acceleration of the player object according to the direction pointed and the vertical input axis
-            self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
-            self.world.player_fuel -= self.engine.fuel_usage() * DDELTA;
+            if self.world.player_fuel >= 0. {
+                let acc;
+                // Set the acceleration of the player object according to the direction pointed and the vertical input axis
+                self.world.player_fuel -= self.engine.fuel_usage() * DDELTA;
+                if self.world.player_fuel < 0. {
+                    acc = self.engine.acceleration() * (1. + self.world.player_fuel as f32 / self.engine.fuel_usage() as f32);
+                    self.world.player_fuel = 0.;
+                } else {
+                    acc = self.engine.acceleration();
+                }
+                self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
+
+            }
 
             // Update the player object
             self.world.player.update(DELTA);
