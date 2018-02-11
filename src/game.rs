@@ -6,71 +6,62 @@ pub struct World {
     player: PhysObj,
     asteroids: Vec<PhysObj>,
     fuels: Vec<PhysObj>,
-    player_fuel: f64,
+    engine: Engine,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-/// The mode the engine is turned into
-pub enum EngineMode {
-    /// Thrust 1
-    Thrust1,
-    /// Thrust 2
-    Thrust2,
-    /// Engine is on
-    On,
-    /// Engine is off
-    Off,
+#[derive(Debug, Serialize, Deserialize)]
+/// The engine
+pub struct Engine {
+    /// The current fuel
+    fuel: f64,
+    /// The current level
+    level: f32,
 }
 
-impl EngineMode {
+impl Engine {
     /// The fuel usage from the current engine mode
-    pub fn fuel_usage(&self) -> f64 {
-        match *self {
-            EngineMode::Off => 0.,
-            EngineMode::On => 0.01,
-            EngineMode::Thrust1 => 10.,
-            EngineMode::Thrust2 => 25.,
+    pub fn usage(&self) -> f64 {
+        self.level as f64 * 45.
+    }
+    /// Burn fuel and return the fuel usage and acceleration provided
+    pub fn burn(&mut self, delta: f64) -> (f64, f32) {
+        let mut usg = self.usage() * delta;
+        if usg > self.fuel {
+            usg = self.fuel;
+        }
+        self.fuel -= usg;
+        if usg > 0. {
+            (usg/delta, self.efficiency() * self.usage() as f32)
+        } else {
+            (0., 0.)
         }
     }
-    /// The amount of thrust from the current engine mode
-    pub fn acceleration(&self) -> f32 {
-        match *self {
-            EngineMode::Off => 0.,
-            EngineMode::On => 0.1,
-            EngineMode::Thrust1 => 35.,
-            EngineMode::Thrust2 => 72.,
+    /// The amount of thrust per fuel from the current engine mode
+    pub fn efficiency(&self) -> f32 {
+        if self.level <= 0. {
+            15.
+        } else if self.level <= 0.1 {
+            12.
+        } else if self.level <= 0.2 {
+            10.
+        } else if self.level <= 0.5 {
+            7.
+        } else {
+            5.
         }
     }
     /// The sprite of the ship with the current engine mode
     pub fn sprite(&self) -> Sprite {
-        match *self {
-            EngineMode::Off => Sprite::ShipOff,
-            EngineMode::On => Sprite::ShipOn,
-            EngineMode::Thrust1 => Sprite::ShipSpeed2,
-            EngineMode::Thrust2 => Sprite::ShipSpeed3,
-        }
-    }
-    /// Toggles the engine on and off
-    pub fn toggle(&mut self) {
-        match *self {
-            EngineMode::Off => *self = EngineMode::On,
-            _ => *self = EngineMode::Off,
-        }
-    }
-    /// Turns the engine up a mode (saturating)
-    pub fn up(&mut self) {
-        match *self {
-            EngineMode::Off | EngineMode::Thrust2 => (),
-            EngineMode::On => *self = EngineMode::Thrust1,
-            EngineMode::Thrust1 => *self = EngineMode::Thrust2,
-        }
-    }
-    /// Turns the engine down a mode (saturating)
-    pub fn down(&mut self) {
-        match *self {
-            EngineMode::Off | EngineMode::On => (),
-            EngineMode::Thrust1 => *self = EngineMode::On,
-            EngineMode::Thrust2 => *self = EngineMode::Thrust1,
+        if self.level <= 0. {
+             Sprite::ShipOff
+        } else if self.level <= 0.1 {
+            Sprite::ShipOn
+        } else if self.level <= 0.2 {
+            Sprite::ShipLit
+        } else if self.level <= 0.5 {
+            Sprite::ShipSpeed2
+        } else {
+            Sprite::ShipSpeed3
         }
     }
 }
@@ -86,8 +77,8 @@ pub struct State {
     ast_spawn_coords: Option<Point2>,
     fuel_spawn_coords: Option<Point2>,
     offset: Vector2,
+    usage: f64,
     world: World,
-    engine: EngineMode,
     fuel_text: PosText,
     fuel_usg_text: PosText,
     engine_mode_text: PosText,
@@ -107,8 +98,8 @@ impl State {
 
         // Initialise the text objects
         let fuel_text = assets.text(ctx, Point2::new(2.0, 0.0), "Fuel: 99999.99 L")?;
-        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 14.0), "Fuel Usage: 33.3 L/s")?;
-        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine mode: thrust1")?;
+        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Fuel Usage: 33.3 L/s")?;
+        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine mode: 0.000")?;
 
         Ok(State {
             input: Default::default(),
@@ -123,9 +114,12 @@ impl State {
             engine_mode_text,
             mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
-            engine: EngineMode::Off,
+            usage: 0.,
             world: World {
-                player_fuel: 2e3,
+                engine: Engine {
+                    fuel: 2e3,
+                    level: 0.,
+                },
                 // The world starts of with one asteroid at (150, 150)
                 asteroids: vec![PhysObj::new(Point2::new(150., 150.), Sprite::Asteroid.radius())],
                 // Initalise the player in the middle of the screen
@@ -137,9 +131,9 @@ impl State {
     /// Update the text objects
     fn update_ui(&mut self, ctx: &mut Context) {
         // Using formatting to round of the numbers to 2 decimals (the `.2` part)
-        let fuel_str = format!("Fuel: {:8.2} L", self.world.player_fuel);
-        let fuel_usg_str = format!("Fuel Usage: {:4} L/s", self.engine.fuel_usage());
-        let engine_mode_str = format!("Engine mode: {:7?}", self.engine);
+        let fuel_str = format!("Fuel: {:8.2} L", self.world.engine.fuel);
+        let fuel_usg_str = format!("Fuel Usage: {:2.1} L/s", self.usage);
+        let engine_mode_str = format!("Engine mode: {:5.3}", self.world.engine.level);
 
         self.fuel_text.update_text(&self.assets, ctx, &fuel_str).unwrap();
         self.fuel_usg_text.update_text(&self.assets, ctx, &fuel_usg_str).unwrap();
@@ -190,18 +184,22 @@ impl EventHandler for State {
 
             // Rotate player if horizontal keys (A,D or left, right arrows)
             self.world.player.obj.rot += 1.7 * self.input.hor() * DELTA;
-            if self.world.player_fuel > 0. {
-                let acc;
-                // Set the acceleration of the player object according to the direction pointed and the vertical input axis
-                self.world.player_fuel -= self.engine.fuel_usage() * DDELTA;
-                if self.world.player_fuel < 0. {
-                    acc = self.engine.acceleration() * (1. + self.world.player_fuel as f32 / self.engine.fuel_usage() as f32);
-                    self.world.player_fuel = 0.;
-                } else {
-                    acc = self.engine.acceleration();
-                }
-                self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
-
+            let (usage, acc);
+            if self.input.ver() == 1. {
+                let (usg, a) = self.world.engine.burn(DDELTA);
+                usage = usg;
+                acc = a;
+            } else {
+                usage = 0.;
+                acc = 0.;
+            }
+            self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
+            self.usage = usage;
+            self.world.engine.level += self.input.throttle() * DELTA;
+            if self.world.engine.level > 1. {
+                self.world.engine.level = 1.;
+            } else if self.world.engine.level < 0. {
+                self.world.engine.level = 0.;
             }
 
             // Update the player object
@@ -280,7 +278,12 @@ impl EventHandler for State {
         graphics::apply_transformations(ctx)?;
 
         // Draw player and asteroids
-        let s = self.engine.sprite();
+        let s;
+        if self.usage > 0. {
+            s = self.world.engine.sprite();
+        } else {
+            s = Sprite::ShipOff;
+        }
         self.world.player.draw(ctx, self.assets.get_img(s))?;
         for ast in &self.world.asteroids {
             ast.draw(ctx, self.assets.get_img(Sprite::Asteroid))?;
@@ -360,6 +363,8 @@ impl EventHandler for State {
             S | Down => self.input.ver -= 1,
             A | Left => self.input.hor -= 1,
             D | Right => self.input.hor += 1,
+            LShift => self.input.throttle += 1,
+            LCtrl => self.input.throttle -= 1,
             Escape => ctx.quit().unwrap(),
             _ => return,
         }
@@ -381,11 +386,11 @@ impl EventHandler for State {
             S | Down => self.input.ver += 1,
             A | Left => self.input.hor += 1,
             D | Right => self.input.hor -= 1,
+            LShift => self.input.throttle -= 1,
+            LCtrl => self.input.throttle += 1,
             L => self.lines.toggle(),
             R => self.world.asteroids.clear(),
-            I => self.engine.toggle(),
-            Q => self.engine.down(),
-            E => self.engine.up(),
+            I => self.world.engine.level = 0.,
             Z => save::save("save.sav", &self.world).unwrap(),
             X => save::load("save.sav", &mut self.world).unwrap(),
             _ => return,

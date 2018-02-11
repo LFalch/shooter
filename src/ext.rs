@@ -18,6 +18,8 @@ pub struct InputState {
     pub hor: i8,
     /// Buttons in the up-down direction
     pub ver: i8,
+    /// Buttons for turning throttle up and down
+    pub throttle: i8,
 }
 
 impl InputState {
@@ -30,5 +32,10 @@ impl InputState {
     #[inline]
     pub fn ver(&self) -> f32 {
         self.ver.signum() as f32
+    }
+    /// Returns `-1`, `0` or `1` depending on whether `self.throttle` is negative, zero or positive
+    #[inline]
+    pub fn throttle(&self) -> f32 {
+        self.throttle.signum() as f32
     }
 }

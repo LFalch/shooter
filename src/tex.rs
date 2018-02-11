@@ -62,7 +62,7 @@ macro_rules! sprites {
                     $(
                         $tex,
                     )*
-                    font: Font::new(ctx, "/FiraMono.ttf", 13)?,
+                    font: Font::new(ctx, "/FiraMono.ttf", 14)?,
                 }))
             }
             /// Gets the `Image` to draw from the sprite
