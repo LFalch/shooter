@@ -190,7 +190,7 @@ impl EventHandler for State {
 
             // Rotate player if horizontal keys (A,D or left, right arrows)
             self.world.player.obj.rot += 1.7 * self.input.hor() * DELTA;
-            if self.world.player_fuel >= 0. {
+            if self.world.player_fuel > 0. {
                 let acc;
                 // Set the acceleration of the player object according to the direction pointed and the vertical input axis
                 self.world.player_fuel -= self.engine.fuel_usage() * DDELTA;
