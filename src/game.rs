@@ -1,4 +1,5 @@
 use ::*;
+use self_compare::SliceCompareExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 /// All the objects in the current world
@@ -230,14 +231,14 @@ impl EventHandler for State {
             }
 
             // Compare each asteroid with the other to see if they collide
-            self_compare::compare(&mut self.world.asteroids, |ast, oth| {
+            self.world.asteroids.compare_self_mut(|ast, oth| {
                 // Check and resolve collision
                 if ast.collides(&oth) {
                     ast.uncollide(oth);
                     ast.elastic_collide(oth);
                 }
             });
-            self_compare::compare(&mut self.world.fuels, |fuel, oth| {
+            self.world.fuels.compare_self_mut(|fuel, oth| {
                 // Check and resolve collision
                 if fuel.collides(&oth) {
                     fuel.uncollide(oth);
