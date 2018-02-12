@@ -205,12 +205,21 @@ impl EventHandler for State {
             // Update the player object
             self.world.player.update(DELTA);
 
-            for fuel in &mut self.world.fuels {
+            let mut consumed_fuel = Vec::new();
+            for (i, fuel) in self.world.fuels.iter_mut().enumerate().rev() {
                 fuel.update(DELTA);
                 if self.world.player.collides(&fuel) {
-                    self.world.player.uncollide(fuel);
-                    self.world.player.elastic_collide(fuel);
+                    if (fuel.vel - self.world.player.vel).norm() <= 30. {
+                        consumed_fuel.push(i);
+                    } else {
+                        self.world.player.uncollide(fuel);
+                        self.world.player.elastic_collide(fuel);
+                    }
                 }
+            }
+            self.world.engine.fuel += 200. * consumed_fuel.len() as f64;
+            for i in consumed_fuel {
+                self.world.fuels.remove(i);
             }
             for ast in &mut self.world.asteroids {
                 ast.update(DELTA);
