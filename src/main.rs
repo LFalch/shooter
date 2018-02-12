@@ -7,6 +7,7 @@ extern crate bincode;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
+extern crate self_compare;
 
 // use ggez::audio;
 use ggez::conf;

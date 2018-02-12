@@ -230,32 +230,20 @@ impl EventHandler for State {
             }
 
             // Compare each asteroid with the other to see if they collide
-            for i in 0..self.world.asteroids.len() - 1 {
-                for j in i+1..self.world.asteroids.len() {
-                    // To avoid having two mutable references to the same object we have to move it out first
-                    let mut oth = std::mem::replace(&mut self.world.asteroids[j], PhysObj::new(Point2::new(0., 0.), Sprite::Asteroid.radius()));
-                    // Check and resolve collision
-                    if self.world.asteroids[i].collides(&oth) {
-                        self.world.asteroids[i].uncollide(&mut oth);
-                        self.world.asteroids[i].elastic_collide(&mut oth);
-                    }
-                    // Reset the asteroid we pulled out
-                    self.world.asteroids[j] = oth;
+            self_compare::compare(&mut self.world.asteroids, |ast, oth| {
+                // Check and resolve collision
+                if ast.collides(&oth) {
+                    ast.uncollide(oth);
+                    ast.elastic_collide(oth);
                 }
-            }
-            for i in 0..self.world.fuels.len() - 1 {
-                for j in i+1..self.world.fuels.len() {
-                    // To avoid having two mutable references to the same object we have to move it out first
-                    let mut oth = std::mem::replace(&mut self.world.fuels[j], PhysObj::new(Point2::new(0., 0.), Sprite::Fuel.radius()));
-                    // Check and resolve collision
-                    if self.world.fuels[i].collides(&oth) {
-                        self.world.fuels[i].uncollide(&mut oth);
-                        self.world.fuels[i].elastic_collide(&mut oth);
-                    }
-                    // Reset the asteroid we pulled out
-                    self.world.fuels[j] = oth;
+            });
+            self_compare::compare(&mut self.world.fuels, |fuel, oth| {
+                // Check and resolve collision
+                if fuel.collides(&oth) {
+                    fuel.uncollide(oth);
+                    fuel.elastic_collide(oth);
                 }
-            }
+            });
             for fuel in &mut self.world.fuels {
                 for ast in &mut self.world.asteroids {
                     if fuel.collides(&ast) {
