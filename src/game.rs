@@ -230,7 +230,7 @@ impl EventHandler for State {
             }
 
             // Compare each asteroid with the other to see if they collide
-            for i in 0..self.world.asteroids.len() {
+            for i in 0..self.world.asteroids.len() - 1 {
                 for j in i+1..self.world.asteroids.len() {
                     // To avoid having two mutable references to the same object we have to move it out first
                     let mut oth = std::mem::replace(&mut self.world.asteroids[j], PhysObj::new(Point2::new(0., 0.), Sprite::Asteroid.radius()));
@@ -243,7 +243,7 @@ impl EventHandler for State {
                     self.world.asteroids[j] = oth;
                 }
             }
-            for i in 0..self.world.fuels.len() {
+            for i in 0..self.world.fuels.len() - 1 {
                 for j in i+1..self.world.fuels.len() {
                     // To avoid having two mutable references to the same object we have to move it out first
                     let mut oth = std::mem::replace(&mut self.world.fuels[j], PhysObj::new(Point2::new(0., 0.), Sprite::Fuel.radius()));
