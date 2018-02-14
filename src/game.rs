@@ -342,6 +342,9 @@ impl EventHandler for State {
             for fuel in &self.world.fuels {
                 fuel.draw_lines(ctx)?;
             }
+            for bullet in &self.world.bullets {
+                bullet.draw_lines(ctx)?;
+            }
             self.world.player.draw_lines(ctx)?;
         }
 
