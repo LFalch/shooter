@@ -80,3 +80,58 @@ impl DerefMut for PhysObj {
         &mut self.obj
     }
 }
+/// A `PhysObj` with health
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DestructableObj {
+    /// Inner `PhysObj`
+    pub obj: PhysObj,
+    /// Hit points
+    pub health: f32,
+}
+
+impl DestructableObj {
+    /// Make new `DestructableObj`
+    pub fn new(pos: Point2, radius: f32, health: f32) -> Self {
+        DestructableObj {
+            obj: PhysObj::new(pos, radius),
+            health
+        }
+    }
+    /// Take damage
+    pub fn hit(&mut self, dmg: f32) {
+        self.health -= dmg;
+        if self.health <= 0. {
+            self.health = 0.;
+        }
+    }
+    /// Check whether it's destroyed
+    pub fn is_dead(&self) -> bool {
+        // To account for NaN, we use not higher than
+        !(self.health > 0.)
+    }
+}
+
+impl Deref for DestructableObj {
+    type Target = PhysObj;
+    fn deref(&self) -> &PhysObj {
+        &self.obj
+    }
+}
+impl DerefMut for DestructableObj {
+    fn deref_mut(&mut self) -> &mut PhysObj {
+        &mut self.obj
+    }
+}
+
+/// Makes a `PhysObj` with the size of bullet
+pub fn make_bullet(p: Point2) -> PhysObj {
+    PhysObj::new(p, Sprite::Bullet.radius())
+}
+/// Makes a `PhysObj` with the size of fuel
+pub fn make_fuel(p: Point2) -> PhysObj {
+    PhysObj::new(p, Sprite::Fuel.radius())
+}
+/// Makes a `DestructableObj` with the size of asteroid
+pub fn make_asteroid(p: Point2) -> DestructableObj {
+    DestructableObj::new(p, Sprite::Asteroid.radius(), 100.)
+}

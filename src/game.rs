@@ -4,9 +4,10 @@ use self_compare::SliceCompareExt;
 #[derive(Debug, Serialize, Deserialize)]
 /// All the objects in the current world
 pub struct World {
-    player: PhysObj,
-    asteroids: Vec<PhysObj>,
+    player: DestructableObj,
+    asteroids: Vec<DestructableObj>,
     fuels: Vec<PhysObj>,
+    bullets: Vec<PhysObj>,
     engine: Engine,
 }
 
@@ -83,7 +84,10 @@ pub struct State {
     fuel_text: PosText,
     fuel_usg_text: PosText,
     engine_mode_text: PosText,
+    health_text: PosText,
 }
+
+const PLAYER_MAX_HEALTH: f32 = 40.;
 
 impl State {
     /// Make a new state object
@@ -101,6 +105,7 @@ impl State {
         let fuel_text = assets.text(ctx, Point2::new(2.0, 0.0), "Fuel: 99999.99 L")?;
         let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Fuel Usage: 33.3 L/s")?;
         let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine mode: 0.000")?;
+        let health_text = assets.text_ra(ctx, width as f32 - 5.0, 18.0, "Health: 999")?;
 
         Ok(State {
             input: Default::default(),
@@ -113,6 +118,7 @@ impl State {
             fuel_text,
             fuel_usg_text,
             engine_mode_text,
+            health_text,
             mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
             usage: 0.,
@@ -121,10 +127,11 @@ impl State {
                     fuel: 2e3,
                     level: 0.,
                 },
+                bullets: Vec::new(),
                 // The world starts of with one asteroid at (150, 150)
-                asteroids: vec![PhysObj::new(Point2::new(150., 150.), Sprite::Asteroid.radius())],
+                asteroids: vec![make_asteroid(Point2::new(150., 150.))],
                 // Initalise the player in the middle of the screen
-                player: PhysObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff.radius()),
+                player: DestructableObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff.radius(), PLAYER_MAX_HEALTH),
                 fuels: Vec::new(),
             }
         })
@@ -135,10 +142,12 @@ impl State {
         let fuel_str = format!("Fuel: {:8.2} L", self.world.engine.fuel);
         let fuel_usg_str = format!("Fuel Usage: {:2.1} L/s", self.usage);
         let engine_mode_str = format!("Engine mode: {:5.3}", self.world.engine.level);
+        let health_str = format!("Health: {:3.0}", self.world.player.health);
 
         self.fuel_text.update_text(&self.assets, ctx, &fuel_str).unwrap();
         self.fuel_usg_text.update_text(&self.assets, ctx, &fuel_usg_str).unwrap();
         self.engine_mode_text.update_text(&self.assets, ctx, &engine_mode_str).unwrap();
+        self.health_text.update_text(&self.assets, ctx, &health_str).unwrap();
     }
     /// Sets the offset so that the given point will be centered on the screen
     fn focus_on(&mut self, p: Point2) {
@@ -219,7 +228,7 @@ impl EventHandler for State {
                 }
             }
             self.world.engine.fuel += 200. * consumed_fuel.len() as f64;
-            for i in consumed_fuel {
+            for i in consumed_fuel.into_iter() {
                 self.world.fuels.remove(i);
             }
             for ast in &mut self.world.asteroids {
@@ -229,6 +238,31 @@ impl EventHandler for State {
                     self.world.player.elastic_collide(ast);
                 }
             }
+            let mut dead_bullets = Vec::new();
+            for (i, bullet) in self.world.bullets.iter_mut().enumerate().rev() {
+                bullet.update(DELTA);
+                if self.world.player.collides(&bullet) {
+                    self.world.player.hit(5.);
+                    dead_bullets.push(i);
+                } else {
+                    for ast in &mut self.world.asteroids {
+                        if ast.collides(&bullet) {
+                            ast.hit(5.);
+                            dead_bullets.push(i);
+                        }
+                    }
+                }
+            }
+            self.world.asteroids.retain(|ast| !ast.is_dead());
+            for i in dead_bullets.into_iter() {
+                self.world.bullets.remove(i);
+            }
+            self.world.bullets.compare_self_mut(|bul, oth| {
+                if bul.collides(&oth) {
+                    bul.uncollide(oth);
+                    bul.elastic_collide(oth);
+                }
+            });
 
             // Compare each asteroid with the other to see if they collide
             self.world.asteroids.compare_self_mut(|ast, oth| {
@@ -252,8 +286,15 @@ impl EventHandler for State {
                         fuel.elastic_collide(ast);
                     }
                 }
+                for bul in &mut self.world.bullets {
+                    if fuel.collides(&bul) {
+                        fuel.uncollide(bul);
+                        fuel.elastic_collide(bul);
+                    }
+                }
             }
         }
+
         self.world.player.obj.rot %= 2.*::std::f32::consts::PI;
 
         // Update the UI
@@ -288,6 +329,9 @@ impl EventHandler for State {
         }
         for fuel in &self.world.fuels {
             fuel.draw(ctx, self.assets.get_img(Sprite::Fuel))?;
+        }
+        for bullet in &self.world.bullets {
+            bullet.draw(ctx, self.assets.get_img(Sprite::Bullet))?;
         }
 
         // If lines is turned on, draw lines for the velocity and acceleration vectors from the objects
@@ -340,6 +384,7 @@ impl EventHandler for State {
         self.fuel_text.draw_text(ctx)?;
         self.fuel_usg_text.draw_text(ctx)?;
         self.engine_mode_text.draw_text(ctx)?;
+        self.health_text.draw_text(ctx)?;
 
         // Flip the buffers to see what we just drew
         graphics::present(ctx);
@@ -391,6 +436,13 @@ impl EventHandler for State {
             I => self.world.engine.level = 0.,
             Z => save::save("save.sav", &self.world).unwrap(),
             X => save::load("save.sav", &mut self.world).unwrap(),
+            Space => {
+                let d = angle_to_vec(self.world.player.rot);
+
+                let mut bullet = make_bullet(self.world.player.pos + 34. * d);
+                bullet.vel = self.world.player.vel + 200. * d;
+                self.world.bullets.push(bullet);
+            }
             _ => return,
         }
     }
@@ -410,7 +462,7 @@ impl EventHandler for State {
             // Get the spawn_coords and replace them with `None`
             if let Some(p) = ::std::mem::replace(&mut self.ast_spawn_coords, None) {
                 // Make a new asteroid object wherever the mouse pointed when the button was pressed down
-                let mut ast = PhysObj::new(p - self.offset, Sprite::Asteroid.radius());
+                let mut ast = make_asteroid(p - self.offset);
                 // Set the velocity so it moves towards where the mouse is now
                 ast.vel = ast.pos - Point2::new(x as f32, y as f32) + self.offset;
                 ast.vel += self.world.player.vel;
@@ -422,7 +474,7 @@ impl EventHandler for State {
             // Get the spawn_coords and replace them with `None`
             if let Some(p) = ::std::mem::replace(&mut self.fuel_spawn_coords, None) {
                 // Make a new object wherever the mouse pointed when the button was pressed down
-                let mut fuel = PhysObj::new(p - self.offset, Sprite::Fuel.radius());
+                let mut fuel = make_fuel(p - self.offset);
                 // Set the velocity so it moves towards where the mouse is now
                 fuel.vel = fuel.pos - Point2::new(x as f32, y as f32) + self.offset;
                 fuel.vel += self.world.player.vel;
