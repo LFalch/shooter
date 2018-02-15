@@ -1,72 +1,9 @@
 use ::*;
-use self_compare::SliceCompareExt;
 
-#[derive(Debug, Serialize, Deserialize)]
-/// All the objects in the current world
-pub struct World {
-    player: DestructableObj,
-    asteroids: Vec<DestructableObj>,
-    fuels: Vec<PhysObj>,
-    bullets: Vec<PhysObj>,
-    engine: Engine,
-}
+/// Stuff related to things in the world
+pub mod world;
 
-#[derive(Debug, Serialize, Deserialize)]
-/// The engine
-pub struct Engine {
-    /// The current fuel
-    fuel: f64,
-    /// The current level
-    level: f32,
-}
-
-impl Engine {
-    /// The fuel usage from the current engine mode
-    pub fn usage(&self) -> f64 {
-        self.level as f64 * 45.
-    }
-    /// Burn fuel and return the fuel usage and acceleration provided
-    pub fn burn(&mut self, delta: f64) -> (f64, f32) {
-        let mut usg = self.usage() * delta;
-        if usg > self.fuel {
-            usg = self.fuel;
-        }
-        self.fuel -= usg;
-        if usg > 0. {
-            (usg/delta, self.efficiency() * self.usage() as f32)
-        } else {
-            (0., 0.)
-        }
-    }
-    /// The amount of thrust per fuel from the current engine mode
-    pub fn efficiency(&self) -> f32 {
-        if self.level <= 0. {
-            15.
-        } else if self.level <= 0.1 {
-            12.
-        } else if self.level <= 0.2 {
-            10.
-        } else if self.level <= 0.5 {
-            7.
-        } else {
-            5.
-        }
-    }
-    /// The sprite of the ship with the current engine mode
-    pub fn sprite(&self) -> Sprite {
-        if self.level <= 0. {
-             Sprite::ShipOff
-        } else if self.level <= 0.1 {
-            Sprite::ShipOn
-        } else if self.level <= 0.2 {
-            Sprite::ShipLit
-        } else if self.level <= 0.5 {
-            Sprite::ShipSpeed2
-        } else {
-            Sprite::ShipSpeed3
-        }
-    }
-}
+use self::world::*;
 
 /// The state of the game
 pub struct State {
@@ -79,7 +16,6 @@ pub struct State {
     ast_spawn_coords: Option<Point2>,
     fuel_spawn_coords: Option<Point2>,
     offset: Vector2,
-    usage: f64,
     world: World,
     fuel_text: PosText,
     fuel_usg_text: PosText,
@@ -88,6 +24,10 @@ pub struct State {
 }
 
 const PLAYER_MAX_HEALTH: f32 = 40.;
+const DESIRED_FPS: u32 = 60;
+
+pub(crate) const DELTA: f32 = 1. / DESIRED_FPS as f32;
+pub(crate) const DDELTA: f64 = 1. / DESIRED_FPS as f64;
 
 impl State {
     /// Make a new state object
@@ -104,7 +44,7 @@ impl State {
         // Initialise the text objects
         let fuel_text = assets.text(ctx, Point2::new(2.0, 0.0), "Fuel: 99999.99 L")?;
         let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Fuel Usage: 33.3 L/s")?;
-        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine mode: 0.000")?;
+        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine throttle: 0.000")?;
         let health_text = assets.text_ra(ctx, width as f32 - 5.0, 18.0, "Health: 999")?;
 
         Ok(State {
@@ -121,7 +61,6 @@ impl State {
             health_text,
             mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
-            usage: 0.,
             world: World {
                 engine: Engine {
                     fuel: 2e3,
@@ -140,8 +79,8 @@ impl State {
     fn update_ui(&mut self, ctx: &mut Context) {
         // Using formatting to round of the numbers to 2 decimals (the `.2` part)
         let fuel_str = format!("Fuel: {:8.2} L", self.world.engine.fuel);
-        let fuel_usg_str = format!("Fuel Usage: {:2.1} L/s", self.usage);
-        let engine_mode_str = format!("Engine mode: {:5.3}", self.world.engine.level);
+        let fuel_usg_str = format!("Fuel Usage: {:2.1} L/s", self.world.engine.usage());
+        let engine_mode_str = format!("Engine throttle: {:5.3}", self.world.engine.level);
         let health_str = format!("Health: {:3.0}", self.world.player.health);
 
         self.fuel_text.update_text(&self.assets, ctx, &fuel_str).unwrap();
@@ -184,115 +123,10 @@ impl State {
 impl EventHandler for State {
     // Handle the game logic
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        const DESIRED_FPS: u32 = 60;
-
         // Run this for every 1/60 of a second has passed since last update
         // Can in theory become slow
         while timer::check_update_time(ctx, DESIRED_FPS) {
-            const DELTA: f32 = 1. / DESIRED_FPS as f32;
-            const DDELTA: f64 = 1. / DESIRED_FPS as f64;
-
-            // Rotate player if horizontal keys (A,D or left, right arrows)
-            self.world.player.obj.rot += 1.7 * self.input.hor() * DELTA;
-            let (usage, acc);
-            if self.input.ver() == 1. {
-                let (usg, a) = self.world.engine.burn(DDELTA);
-                usage = usg;
-                acc = a;
-            } else {
-                usage = 0.;
-                acc = 0.;
-            }
-            self.world.player.acc = acc * angle_to_vec(self.world.player.obj.rot);
-            self.usage = usage;
-            self.world.engine.level += self.input.throttle() * DELTA;
-            if self.world.engine.level > 1. {
-                self.world.engine.level = 1.;
-            } else if self.world.engine.level < 0. {
-                self.world.engine.level = 0.;
-            }
-
-            // Update the player object
-            self.world.player.update(DELTA);
-
-            let mut consumed_fuel = Vec::new();
-            for (i, fuel) in self.world.fuels.iter_mut().enumerate().rev() {
-                fuel.update(DELTA);
-                if self.world.player.collides(&fuel) {
-                    if (fuel.vel - self.world.player.vel).norm() <= 30. {
-                        consumed_fuel.push(i);
-                    } else {
-                        self.world.player.uncollide(fuel);
-                        self.world.player.elastic_collide(fuel);
-                    }
-                }
-            }
-            self.world.engine.fuel += 200. * consumed_fuel.len() as f64;
-            for i in consumed_fuel.into_iter() {
-                self.world.fuels.remove(i);
-            }
-            for ast in &mut self.world.asteroids {
-                ast.update(DELTA);
-                if self.world.player.collides(&ast) {
-                    self.world.player.uncollide(ast);
-                    self.world.player.elastic_collide(ast);
-                }
-            }
-            let mut dead_bullets = Vec::new();
-            for (i, bullet) in self.world.bullets.iter_mut().enumerate().rev() {
-                bullet.update(DELTA);
-                if self.world.player.collides(&bullet) {
-                    self.world.player.hit(5.);
-                    dead_bullets.push(i);
-                } else {
-                    for ast in &mut self.world.asteroids {
-                        if ast.collides(&bullet) {
-                            ast.hit(5.);
-                            dead_bullets.push(i);
-                        }
-                    }
-                }
-            }
-            self.world.asteroids.retain(|ast| !ast.is_dead());
-            for i in dead_bullets.into_iter() {
-                self.world.bullets.remove(i);
-            }
-            self.world.bullets.compare_self_mut(|bul, oth| {
-                if bul.collides(&oth) {
-                    bul.uncollide(oth);
-                    bul.elastic_collide(oth);
-                }
-            });
-
-            // Compare each asteroid with the other to see if they collide
-            self.world.asteroids.compare_self_mut(|ast, oth| {
-                // Check and resolve collision
-                if ast.collides(&oth) {
-                    ast.uncollide(oth);
-                    ast.elastic_collide(oth);
-                }
-            });
-            self.world.fuels.compare_self_mut(|fuel, oth| {
-                // Check and resolve collision
-                if fuel.collides(&oth) {
-                    fuel.uncollide(oth);
-                    fuel.elastic_collide(oth);
-                }
-            });
-            for fuel in &mut self.world.fuels {
-                for ast in &mut self.world.asteroids {
-                    if fuel.collides(&ast) {
-                        fuel.uncollide(ast);
-                        fuel.elastic_collide(ast);
-                    }
-                }
-                for bul in &mut self.world.bullets {
-                    if fuel.collides(&bul) {
-                        fuel.uncollide(bul);
-                        fuel.elastic_collide(bul);
-                    }
-                }
-            }
+            self.world.physics_update(&self.input);
         }
 
         self.world.player.obj.rot %= 2.*::std::f32::consts::PI;
@@ -318,7 +152,7 @@ impl EventHandler for State {
 
         // Draw player and asteroids
         let s;
-        if self.usage > 0. {
+        if self.world.player.acc.iter().any(|e| e != &0.) {
             s = self.world.engine.sprite();
         } else {
             s = Sprite::ShipOff;
@@ -444,6 +278,7 @@ impl EventHandler for State {
 
                 let mut bullet = make_bullet(self.world.player.pos + 34. * d);
                 bullet.vel = self.world.player.vel + 200. * d;
+                bullet.rot = self.world.player.rot;
                 self.world.bullets.push(bullet);
             }
             _ => return,

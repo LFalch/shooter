@@ -1,3 +1,5 @@
+pub(super) mod phys;
+
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Point2, Image};
 use ggez::nalgebra as na;

@@ -87,7 +87,7 @@ sprites! {
     Asteroid, asteroid, 48., 48., 24.,
     StarsBg, stars_bg, 2560., 1440., 0./0.,
     Fuel, fuel, 32., 32., 16.,
-    Bullet, bullet, 32., 32., 15.5,
+    Bullet, bullet, 16., 16., 7.5,
 }
 
 impl Assets {

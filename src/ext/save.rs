@@ -3,7 +3,8 @@ use std::fs::File;
 use ggez::error::GameError;
 
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use ::*;
+use game::world::World;
+use ::{bincode, Vector2, Point2, GameResult};
 
 /// Save the state in a file
 pub fn save<P: AsRef<Path>>(path: P, w: &World) -> GameResult<()> {

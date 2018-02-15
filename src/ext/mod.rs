@@ -1,3 +1,6 @@
+/// Allows for the state to be saved into and loaded from a file
+pub mod save;
+
 /// Extensions for booleans
 pub trait BoolExt {
     /// Toggle the value

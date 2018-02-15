@@ -19,14 +19,11 @@ use ggez::nalgebra as na;
 
 mod obj;
 pub use obj::*;
-mod phys;
-pub use phys::*;
+pub use obj::phys::*;
 mod tex;
 pub use tex::*;
 mod ext;
 pub use ext::*;
-/// Allows for the state to be saved into and loaded from a file
-pub mod save;
 mod game;
 pub use game::*;
 
