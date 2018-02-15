@@ -139,16 +139,12 @@ impl Engine {
     }
     /// The amount of thrust per fuel from the current engine mode
     pub fn efficiency(&self) -> f32 {
-        if self.level <= 0. {
-            15.
-        } else if self.level <= 0.1 {
-            12.
-        } else if self.level <= 0.2 {
-            10.
+        if self.level < 0.2 {
+            -25. * self.level + 15.
         } else if self.level <= 0.5 {
-            7.
+            -10. * self.level + 12.
         } else {
-            5.
+            -4. * self.level + 9.
         }
     }
     /// The sprite of the ship with the current engine mode
