@@ -113,53 +113,54 @@ impl World {
 
 #[derive(Debug, Serialize, Deserialize)]
 /// The engine
-pub struct Engine {
+pub struct Thruster {
     /// The current fuel
-    pub(super) fuel: f64,
-    /// The current level
-    pub(super) level: f32,
-    /// Power
-    pub(super) power: bool,
+    pub fuel: f64,
+    /// The current level of throttle (0...max_throttle)
+    pub throttle_usage: f64,
+    /// Whether it is turned on or off
+    pub power: bool,
+    efficiency: f32,
+    max_throttle: f64,
 }
 
-impl Engine {
-    /// The fuel usage from the current engine mode
-    pub fn usage(&self) -> f64 {
-        if self.fuel > 0. {
-            self.level as f64 * 45.
-        } else {
-            0.
+const PLAYER_ENGINE: Thruster = Thruster {
+    fuel: 251246.,
+    throttle_usage: 0.,
+    power: false,
+    efficiency: 7.3,
+    max_throttle: 45.,
+};
+
+impl Thruster {
+    pub fn new(fuel: f64, efficiency: f32, max_throttle: f64) -> Self {
+        Thruster {
+            fuel,
+            efficiency,
+            max_throttle,
+            throttle_usage: 0.,
+            power: false,
         }
     }
     /// Burn fuel and return the acceleration provided
     pub fn burn(&mut self) -> f32 {
-        let mut usg = self.usage() * DDELTA;
+        let mut usg = self.throttle_usage * DDELTA;
         if usg > self.fuel {
             usg = self.fuel;
         }
         self.fuel -= usg;
 
-        self.efficiency() * usg as f32
-    }
-    /// The amount of thrust per fuel from the current engine mode
-    pub fn efficiency(&self) -> f32 {
-        if self.level < 0.2 {
-            -25. * self.level + 15.
-        } else if self.level <= 0.5 {
-            -10. * self.level + 12.
-        } else {
-            -4. * self.level + 9.
-        }
+        self.efficiency * usg as f32
     }
     /// The sprite of the ship with the current engine mode
     pub fn sprite(&self) -> Sprite {
-        if !self.power || self.level <= 0. {
+        if !self.power || self.throttle_usage <= 0. {
              Sprite::ShipOff
-        } else if self.level <= 0.1 {
+        } else if self.throttle_usage <= 4.5 {
             Sprite::ShipOn
-        } else if self.level <= 0.2 {
+        } else if self.throttle_usage <= 9. {
             Sprite::ShipLit
-        } else if self.level <= 0.5 {
+        } else if self.throttle_usage <= 22.5 {
             Sprite::ShipSpeed2
         } else {
             Sprite::ShipSpeed3
