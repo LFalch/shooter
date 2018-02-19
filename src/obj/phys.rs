@@ -10,9 +10,6 @@ pub struct PhysObj {
     #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
     /// The velocity of the object
     pub vel: Vector2,
-    #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
-    /// The acceleration of the object
-    pub acc: Vector2,
     /// The mass
     pub mass: f32,
 }
@@ -23,7 +20,6 @@ impl PhysObj {
         PhysObj {
             obj: Obj::new(pos, radius),
             vel: na::zero(),
-            acc: na::zero(),
             mass: radius.powi(2) * std::f32::consts::PI,
         }
     }
@@ -37,14 +33,11 @@ impl PhysObj {
         let vel = self.pos+self.vel;
 
         graphics::set_color(ctx, GREEN)?;
-        graphics::line(ctx, &[self.pos, vel], 2.)?;
-        graphics::set_color(ctx, RED)?;
-        graphics::line(ctx, &[vel, vel + self.acc], 2.)
+        graphics::line(ctx, &[self.pos, vel], 2.)
     }
     /// Update its position and velocity using basic physics
     pub fn update(&mut self, dt: f32) {
-        self.obj.pos += 0.5 * self.acc * dt * dt + self.vel * dt;
-        self.vel += self.acc * dt;
+        self.pos += self.vel * dt;
     }
     /// Realistic elastic collision
     pub fn elastic_collide(&mut self, oth: &mut Self) -> (Vector2, Vector2) {

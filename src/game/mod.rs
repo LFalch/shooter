@@ -65,6 +65,7 @@ impl State {
                 engine: Engine {
                     fuel: 2e3,
                     level: 0.,
+                    power: false,
                 },
                 bullets: Vec::new(),
                 // The world starts of with one asteroid at (150, 150)
@@ -151,12 +152,7 @@ impl EventHandler for State {
         graphics::apply_transformations(ctx)?;
 
         // Draw player and asteroids
-        let s;
-        if self.world.player.acc.iter().any(|e| e != &0.) {
-            s = self.world.engine.sprite();
-        } else {
-            s = Sprite::ShipOff;
-        }
+        let s = self.world.engine.sprite();
         self.world.player.draw(ctx, self.assets.get_img(s))?;
         for ast in &self.world.asteroids {
             ast.draw(ctx, self.assets.get_img(Sprite::Asteroid))?;

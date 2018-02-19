@@ -15,21 +15,23 @@ impl World {
     pub(super) fn physics_update(&mut self, input_state: &InputState) {
         self.player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
-        let acc;
+        self.player.update(DELTA);
+
         if input_state.ver() == 1. {
-            acc = self.engine.burn() * angle_to_vec(self.player.obj.rot);
+            let acc = self.engine.burn() * angle_to_vec(self.player.obj.rot);
+            self.player.pos += 0.5 * acc * DELTA;
+            self.player.vel += acc;
+            self.engine.power = true;
         } else {
-            acc = Vector2::new(0., 0.);
+            self.engine.power = false;
         }
-        self.player.acc = acc;
+
         self.engine.level += input_state.throttle() * DELTA;
         if self.engine.level > 1. {
             self.engine.level = 1.;
         } else if self.engine.level < 0. {
             self.engine.level = 0.;
         }
-
-        self.player.update(DELTA);
 
         let mut consumed_fuel = Vec::new();
         for (i, fuel) in self.fuels.iter_mut().enumerate().rev() {
@@ -116,6 +118,8 @@ pub struct Engine {
     pub(super) fuel: f64,
     /// The current level
     pub(super) level: f32,
+    /// Power
+    pub(super) power: bool,
 }
 
 impl Engine {
@@ -135,7 +139,7 @@ impl Engine {
         }
         self.fuel -= usg;
 
-        self.efficiency() * (usg / DDELTA) as f32
+        self.efficiency() * usg as f32
     }
     /// The amount of thrust per fuel from the current engine mode
     pub fn efficiency(&self) -> f32 {
@@ -149,7 +153,7 @@ impl Engine {
     }
     /// The sprite of the ship with the current engine mode
     pub fn sprite(&self) -> Sprite {
-        if self.level <= 0. {
+        if !self.power || self.level <= 0. {
              Sprite::ShipOff
         } else if self.level <= 0.1 {
             Sprite::ShipOn
