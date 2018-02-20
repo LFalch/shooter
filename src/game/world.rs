@@ -6,18 +6,18 @@ use self_compare::SliceCompareExt;
 pub struct World {
     pub(super) player: ThrustedObj,
     pub(super) asteroids: Vec<DestructableObj>,
-    pub(super) fuels: Vec<PhysObj>,
-    pub(super) bullets: Vec<PhysObj>,
+    pub(super) fuels: Vec<Object>,
+    pub(super) bullets: Vec<Object>,
 }
 
 // Collision detection commands
 #[inline]
-fn check_and_resolve(o1: &mut PhysObj, o2: &mut PhysObj) {
+fn check_and_resolve(o1: &mut Object, o2: &mut Object) {
     o1.uncollide(o2);
     o1.elastic_collide(o2);
 }
 
-fn resolve(o1: &mut PhysObj, o2: &mut PhysObj) {
+fn resolve(o1: &mut Object, o2: &mut Object) {
     if o1.collides(&o2) {
         check_and_resolve(o1, o2);
     }

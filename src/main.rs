@@ -15,7 +15,6 @@ use ggez::event::*;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::timer;
 use ggez::graphics::{self, Vector2, Point2, Matrix4, Color};
-use ggez::nalgebra as na;
 
 mod obj;
 pub use obj::*;
