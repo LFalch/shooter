@@ -10,17 +10,26 @@ pub struct World {
     pub(super) bullets: Vec<PhysObj>,
 }
 
+// Collision detection commands
+#[inline]
+fn check_and_resolve(o1: &mut PhysObj, o2: &mut PhysObj) {
+    o1.uncollide(o2);
+    o1.elastic_collide(o2);
+}
+
+fn resolve(o1: &mut PhysObj, o2: &mut PhysObj) {
+    if o1.collides(&o2) {
+        check_and_resolve(o1, o2);
+    }
+}
+
 impl World {
     pub(super) fn physics_update(&mut self, input_state: &InputState) {
         self.player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
         self.player.update();
 
-        if input_state.ver() == 1. {
-            self.player.thruster.power = true;
-        } else {
-            self.player.thruster.power = false;
-        }
+        self.player.thruster.power = input_state.ver() == 1.;
         self.player.thruster.throttle(input_state.throttle() as f64 * 4.5 * DDELTA);
 
         let mut consumed_fuel = Vec::new();
@@ -30,8 +39,7 @@ impl World {
                 if (fuel.vel - self.player.vel).norm() <= 30. {
                     consumed_fuel.push(i);
                 } else {
-                    self.player.uncollide(fuel);
-                    self.player.elastic_collide(fuel);
+                    resolve(&mut self.player, fuel);
                 }
             }
         }
@@ -41,10 +49,7 @@ impl World {
         }
         for ast in &mut self.asteroids {
             ast.update(DELTA);
-            if self.player.collides(&ast) {
-                self.player.uncollide(ast);
-                self.player.elastic_collide(ast);
-            }
+            check_and_resolve(&mut self.player, ast);
         }
         let mut dead_bullets = Vec::new();
         for (i, bullet) in self.bullets.iter_mut().enumerate().rev() {
@@ -65,37 +70,16 @@ impl World {
         for i in dead_bullets.into_iter() {
             self.bullets.remove(i);
         }
-        self.bullets.compare_self_mut(|bul, oth| {
-            if bul.collides(&oth) {
-                bul.uncollide(oth);
-                bul.elastic_collide(oth);
-            }
-        });
+        self.bullets.compare_self_mut(check_and_resolve);
 
-        self.asteroids.compare_self_mut(|ast, oth| {
-            if ast.collides(&oth) {
-                ast.uncollide(oth);
-                ast.elastic_collide(oth);
-            }
-        });
-        self.fuels.compare_self_mut(|fuel, oth| {
-            if fuel.collides(&oth) {
-                fuel.uncollide(oth);
-                fuel.elastic_collide(oth);
-            }
-        });
+        self.asteroids.compare_self_mut(|a, b| check_and_resolve(a, b));
+        self.fuels.compare_self_mut(check_and_resolve);
         for fuel in &mut self.fuels {
             for ast in &mut self.asteroids {
-                if fuel.collides(&ast) {
-                    fuel.uncollide(ast);
-                    fuel.elastic_collide(ast);
-                }
+                check_and_resolve(fuel, ast);
             }
             for bul in &mut self.bullets {
-                if fuel.collides(&bul) {
-                    fuel.uncollide(bul);
-                    fuel.elastic_collide(bul);
-                }
+                check_and_resolve(fuel, bul);
             }
         }
     }
