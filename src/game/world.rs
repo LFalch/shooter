@@ -4,18 +4,17 @@ use self_compare::SliceCompareExt;
 #[derive(Debug, Serialize, Deserialize)]
 /// All the objects in the current world
 pub struct World {
-    pub(super) player: DestructableObj,
+    pub(super) player: ThrustedObj,
     pub(super) asteroids: Vec<DestructableObj>,
     pub(super) fuels: Vec<PhysObj>,
     pub(super) bullets: Vec<PhysObj>,
-    pub(super) engine: Engine,
 }
 
 impl World {
     pub(super) fn physics_update(&mut self, input_state: &InputState) {
         self.player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
-        self.player.update(DELTA);
+        self.player.update();
 
         if input_state.ver() == 1. {
             let acc = self.engine.burn() * angle_to_vec(self.player.obj.rot);
@@ -123,14 +122,6 @@ pub struct Thruster {
     efficiency: f32,
     max_throttle: f64,
 }
-
-const PLAYER_ENGINE: Thruster = Thruster {
-    fuel: 251246.,
-    throttle_usage: 0.,
-    power: false,
-    efficiency: 7.3,
-    max_throttle: 45.,
-};
 
 impl Thruster {
     pub fn new(fuel: f64, efficiency: f32, max_throttle: f64) -> Self {

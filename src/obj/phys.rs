@@ -116,6 +116,57 @@ impl DerefMut for DestructableObj {
     }
 }
 
+use ::game::world::Thruster;
+use ::game::DELTA;
+
+/// A self acceleratable `DestructableObj`
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ThrustedObj {
+    obj: DestructableObj,
+    #[serde(serialize_with = "::save::vec_ser", deserialize_with = "::save::vec_des")]
+    acc: Vector2,
+    pub thruster: Thruster,
+}
+
+impl ThrustedObj {
+    pub fn new(pos: Point2, radius: f32, health: f32, thruster: Thruster) -> Self {
+        ThrustedObj {
+            obj: DestructableObj::new(pos, radius, health),
+            acc: Vector2::new(0., 0.),
+            thruster,
+        }
+    }
+    pub fn update(&mut self) {
+        self.acc = self.thruster.burn() * angle_to_vec(self.rot);
+        self.pos += 0.5 * self.acc * DELTA + self.vel * DELTA;
+        self.vel += self.acc;
+    }
+}
+
+impl Deref for ThrustedObj {
+    type Target = DestructableObj;
+    fn deref(&self) -> &Self::Target {
+        &self.obj
+    }
+}
+impl DerefMut for ThrustedObj {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.obj
+    }
+}
+
+const PLAYER_ENGINE: Thruster = Thruster {
+    fuel: 2e3,
+    throttle_usage: 0.,
+    power: false,
+    efficiency: 7.3,
+    max_throttle: 45.,
+};
+
+/// Make a player
+pub fn make_player(p: Point2) -> ThrustedObj {
+    ThrustedObj::new(p, Sprite::ShipOff.radius(), 40., PLAYER_ENGINE)
+}
 /// Makes a `PhysObj` with the size of bullet
 pub fn make_bullet(p: Point2) -> PhysObj {
     PhysObj::new(p, Sprite::Bullet.radius())
