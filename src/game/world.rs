@@ -137,11 +137,20 @@ impl Thruster {
     pub fn burn(&mut self) -> f32 {
         let mut usg = self.throttle_usage * DDELTA;
         if usg > self.fuel {
+            self.power = false;
             usg = self.fuel;
         }
         self.fuel -= usg;
 
         self.efficiency * usg as f32
+    }
+    pub fn throttle(&mut self, throttle: f64) {
+        self.throttle_usage += throttle;
+        if self.throttle_usage < 0. {
+            self.throttle_usage = 0.;
+        } else if self.throttle_usage > self.max_throttle {
+            self.throttle_usage = self.max_throttle;
+        }
     }
     /// The sprite of the ship with the current engine mode
     pub fn sprite(&self) -> Sprite {
