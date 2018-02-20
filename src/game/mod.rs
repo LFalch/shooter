@@ -19,7 +19,6 @@ pub struct State {
     world: World,
     fuel_text: PosText,
     fuel_usg_text: PosText,
-    engine_mode_text: PosText,
     health_text: PosText,
 }
 
@@ -42,8 +41,7 @@ impl State {
 
         // Initialise the text objects
         let fuel_text = assets.text(ctx, Point2::new(2.0, 0.0), "Fuel: 99999.99 L")?;
-        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Fuel Usage: 33.3 L/s")?;
-        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine throttle: 0.000")?;
+        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Throttle: 33.3 L/s")?;
         let health_text = assets.text_ra(ctx, width as f32 - 5.0, 18.0, "Health: 999")?;
 
         Ok(State {
@@ -56,7 +54,6 @@ impl State {
             lines: false,
             fuel_text,
             fuel_usg_text,
-            engine_mode_text,
             health_text,
             mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
@@ -74,7 +71,7 @@ impl State {
     fn update_ui(&mut self, ctx: &mut Context) {
         // Using formatting to round of the numbers to 2 decimals (the `.2` part)
         let fuel_str = format!("Fuel: {:8.2} L", self.world.player.thruster.fuel);
-        let fuel_usg_str = format!("Fuel Usage: {:2.1} L/s", self.world.player.thruster.throttle_usage);
+        let fuel_usg_str = format!("Throttle: {:2.1} L/s", self.world.player.thruster.throttle_usage);
         let health_str = format!("Health: {:3.0}", self.world.player.health);
 
         self.fuel_text.update_text(&self.assets, ctx, &fuel_str).unwrap();
@@ -208,7 +205,6 @@ impl EventHandler for State {
         graphics::set_color(ctx, graphics::WHITE)?;
         self.fuel_text.draw_text(ctx)?;
         self.fuel_usg_text.draw_text(ctx)?;
-        self.engine_mode_text.draw_text(ctx)?;
         self.health_text.draw_text(ctx)?;
 
         // Flip the buffers to see what we just drew

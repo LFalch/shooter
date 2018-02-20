@@ -17,20 +17,11 @@ impl World {
         self.player.update();
 
         if input_state.ver() == 1. {
-            let acc = self.engine.burn() * angle_to_vec(self.player.obj.rot);
-            self.player.pos += 0.5 * acc * DELTA;
-            self.player.vel += acc;
-            self.engine.power = true;
+            self.player.thruster.power = true;
         } else {
-            self.engine.power = false;
+            self.player.thruster.power = false;
         }
-
-        self.engine.level += input_state.throttle() * DELTA;
-        if self.engine.level > 1. {
-            self.engine.level = 1.;
-        } else if self.engine.level < 0. {
-            self.engine.level = 0.;
-        }
+        self.player.thruster.throttle(input_state.throttle() as f64 * 4.5 * DDELTA);
 
         let mut consumed_fuel = Vec::new();
         for (i, fuel) in self.fuels.iter_mut().enumerate().rev() {
@@ -44,7 +35,7 @@ impl World {
                 }
             }
         }
-        self.engine.fuel += 200. * consumed_fuel.len() as f64;
+        self.player.thruster.fuel += 200. * consumed_fuel.len() as f64;
         for i in consumed_fuel.into_iter() {
             self.fuels.remove(i);
         }
@@ -106,64 +97,6 @@ impl World {
                     fuel.elastic_collide(bul);
                 }
             }
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// The engine
-pub struct Thruster {
-    /// The current fuel
-    pub fuel: f64,
-    /// The current level of throttle (0...max_throttle)
-    pub throttle_usage: f64,
-    /// Whether it is turned on or off
-    pub power: bool,
-    efficiency: f32,
-    max_throttle: f64,
-}
-
-impl Thruster {
-    pub fn new(fuel: f64, efficiency: f32, max_throttle: f64) -> Self {
-        Thruster {
-            fuel,
-            efficiency,
-            max_throttle,
-            throttle_usage: 0.,
-            power: false,
-        }
-    }
-    /// Burn fuel and return the acceleration provided
-    pub fn burn(&mut self) -> f32 {
-        let mut usg = self.throttle_usage * DDELTA;
-        if usg > self.fuel {
-            self.power = false;
-            usg = self.fuel;
-        }
-        self.fuel -= usg;
-
-        self.efficiency * usg as f32
-    }
-    pub fn throttle(&mut self, throttle: f64) {
-        self.throttle_usage += throttle;
-        if self.throttle_usage < 0. {
-            self.throttle_usage = 0.;
-        } else if self.throttle_usage > self.max_throttle {
-            self.throttle_usage = self.max_throttle;
-        }
-    }
-    /// The sprite of the ship with the current engine mode
-    pub fn sprite(&self) -> Sprite {
-        if !self.power || self.throttle_usage <= 0. {
-             Sprite::ShipOff
-        } else if self.throttle_usage <= 4.5 {
-            Sprite::ShipOn
-        } else if self.throttle_usage <= 9. {
-            Sprite::ShipLit
-        } else if self.throttle_usage <= 22.5 {
-            Sprite::ShipSpeed2
-        } else {
-            Sprite::ShipSpeed3
         }
     }
 }
