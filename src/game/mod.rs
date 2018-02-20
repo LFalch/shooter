@@ -19,11 +19,9 @@ pub struct State {
     world: World,
     fuel_text: PosText,
     fuel_usg_text: PosText,
-    engine_mode_text: PosText,
     health_text: PosText,
 }
 
-const PLAYER_MAX_HEALTH: f32 = 40.;
 const DESIRED_FPS: u32 = 60;
 
 pub(crate) const DELTA: f32 = 1. / DESIRED_FPS as f32;
@@ -43,8 +41,7 @@ impl State {
 
         // Initialise the text objects
         let fuel_text = assets.text(ctx, Point2::new(2.0, 0.0), "Fuel: 99999.99 L")?;
-        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Fuel Usage: 33.3 L/s")?;
-        let engine_mode_text = assets.text_ra(ctx, width as f32 - 5.0, 2.0, "Engine throttle: 0.000")?;
+        let fuel_usg_text = assets.text(ctx, Point2::new(2.0, 16.0), "Throttle: 33.3 L/s")?;
         let health_text = assets.text_ra(ctx, width as f32 - 5.0, 18.0, "Health: 999")?;
 
         Ok(State {
@@ -57,21 +54,15 @@ impl State {
             lines: false,
             fuel_text,
             fuel_usg_text,
-            engine_mode_text,
             health_text,
             mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
             world: World {
-                engine: Engine {
-                    fuel: 2e3,
-                    level: 0.,
-                    power: false,
-                },
                 bullets: Vec::new(),
                 // The world starts of with one asteroid at (150, 150)
                 asteroids: vec![make_asteroid(Point2::new(150., 150.))],
                 // Initalise the player in the middle of the screen
-                player: DestructableObj::new(Point2::new(width as f32 / 2., height as f32 / 2.), Sprite::ShipOff.radius(), PLAYER_MAX_HEALTH),
+                player: make_player(Point2::new(width as f32 / 2., height as f32 / 2.)),
                 fuels: Vec::new(),
             }
         })
@@ -79,14 +70,12 @@ impl State {
     /// Update the text objects
     fn update_ui(&mut self, ctx: &mut Context) {
         // Using formatting to round of the numbers to 2 decimals (the `.2` part)
-        let fuel_str = format!("Fuel: {:8.2} L", self.world.engine.fuel);
-        let fuel_usg_str = format!("Fuel Usage: {:2.1} L/s", self.world.engine.usage());
-        let engine_mode_str = format!("Engine throttle: {:5.3}", self.world.engine.level);
+        let fuel_str = format!("Fuel: {:8.2} L", self.world.player.thruster.fuel);
+        let fuel_usg_str = format!("Throttle: {:2.1} L/s", self.world.player.thruster.throttle_usage);
         let health_str = format!("Health: {:3.0}", self.world.player.health);
 
         self.fuel_text.update_text(&self.assets, ctx, &fuel_str).unwrap();
         self.fuel_usg_text.update_text(&self.assets, ctx, &fuel_usg_str).unwrap();
-        self.engine_mode_text.update_text(&self.assets, ctx, &engine_mode_str).unwrap();
         self.health_text.update_text(&self.assets, ctx, &health_str).unwrap();
     }
     /// Sets the offset so that the given point will be centered on the screen
@@ -152,7 +141,7 @@ impl EventHandler for State {
         graphics::apply_transformations(ctx)?;
 
         // Draw player and asteroids
-        let s = self.world.engine.sprite();
+        let s = self.world.player.thruster.sprite();
         self.world.player.draw(ctx, self.assets.get_img(s))?;
         for ast in &self.world.asteroids {
             ast.draw(ctx, self.assets.get_img(Sprite::Asteroid))?;
@@ -216,7 +205,6 @@ impl EventHandler for State {
         graphics::set_color(ctx, graphics::WHITE)?;
         self.fuel_text.draw_text(ctx)?;
         self.fuel_usg_text.draw_text(ctx)?;
-        self.engine_mode_text.draw_text(ctx)?;
         self.health_text.draw_text(ctx)?;
 
         // Flip the buffers to see what we just drew
@@ -266,7 +254,7 @@ impl EventHandler for State {
             LCtrl => self.input.throttle += 1,
             L => self.lines.toggle(),
             R => self.world.asteroids.clear(),
-            I => self.world.engine.level = 0.,
+            I => self.world.player.thruster.throttle_usage = 0.,
             Z => save::save("save.sav", &self.world).unwrap(),
             X => save::load("save.sav", &mut self.world).unwrap(),
             Space => {

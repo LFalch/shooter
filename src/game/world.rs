@@ -4,34 +4,24 @@ use self_compare::SliceCompareExt;
 #[derive(Debug, Serialize, Deserialize)]
 /// All the objects in the current world
 pub struct World {
-    pub(super) player: DestructableObj,
+    pub(super) player: ThrustedObj,
     pub(super) asteroids: Vec<DestructableObj>,
     pub(super) fuels: Vec<PhysObj>,
     pub(super) bullets: Vec<PhysObj>,
-    pub(super) engine: Engine,
 }
 
 impl World {
     pub(super) fn physics_update(&mut self, input_state: &InputState) {
         self.player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
-        self.player.update(DELTA);
+        self.player.update();
 
         if input_state.ver() == 1. {
-            let acc = self.engine.burn() * angle_to_vec(self.player.obj.rot);
-            self.player.pos += 0.5 * acc * DELTA;
-            self.player.vel += acc;
-            self.engine.power = true;
+            self.player.thruster.power = true;
         } else {
-            self.engine.power = false;
+            self.player.thruster.power = false;
         }
-
-        self.engine.level += input_state.throttle() * DELTA;
-        if self.engine.level > 1. {
-            self.engine.level = 1.;
-        } else if self.engine.level < 0. {
-            self.engine.level = 0.;
-        }
+        self.player.thruster.throttle(input_state.throttle() as f64 * 4.5 * DDELTA);
 
         let mut consumed_fuel = Vec::new();
         for (i, fuel) in self.fuels.iter_mut().enumerate().rev() {
@@ -45,7 +35,7 @@ impl World {
                 }
             }
         }
-        self.engine.fuel += 200. * consumed_fuel.len() as f64;
+        self.player.thruster.fuel += 200. * consumed_fuel.len() as f64;
         for i in consumed_fuel.into_iter() {
             self.fuels.remove(i);
         }
@@ -107,62 +97,6 @@ impl World {
                     fuel.elastic_collide(bul);
                 }
             }
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// The engine
-pub struct Engine {
-    /// The current fuel
-    pub(super) fuel: f64,
-    /// The current level
-    pub(super) level: f32,
-    /// Power
-    pub(super) power: bool,
-}
-
-impl Engine {
-    /// The fuel usage from the current engine mode
-    pub fn usage(&self) -> f64 {
-        if self.fuel > 0. {
-            self.level as f64 * 45.
-        } else {
-            0.
-        }
-    }
-    /// Burn fuel and return the acceleration provided
-    pub fn burn(&mut self) -> f32 {
-        let mut usg = self.usage() * DDELTA;
-        if usg > self.fuel {
-            usg = self.fuel;
-        }
-        self.fuel -= usg;
-
-        self.efficiency() * usg as f32
-    }
-    /// The amount of thrust per fuel from the current engine mode
-    pub fn efficiency(&self) -> f32 {
-        if self.level < 0.2 {
-            -25. * self.level + 15.
-        } else if self.level <= 0.5 {
-            -10. * self.level + 12.
-        } else {
-            -4. * self.level + 9.
-        }
-    }
-    /// The sprite of the ship with the current engine mode
-    pub fn sprite(&self) -> Sprite {
-        if !self.power || self.level <= 0. {
-             Sprite::ShipOff
-        } else if self.level <= 0.1 {
-            Sprite::ShipOn
-        } else if self.level <= 0.2 {
-            Sprite::ShipLit
-        } else if self.level <= 0.5 {
-            Sprite::ShipSpeed2
-        } else {
-            Sprite::ShipSpeed3
         }
     }
 }
