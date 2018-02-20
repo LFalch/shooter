@@ -3,6 +3,7 @@ use std::ops::{Deref, DerefMut};
 use ggez::graphics::{self, Point2, Vector2};
 use ggez::{Context, GameResult};
 use {RED, Object, DDELTA, DELTA, Sprite, angle_to_vec};
+use super::AsObject;
 
 /// A `PhysObj` with health
 #[derive(Debug, Deserialize, Serialize)]
@@ -66,8 +67,16 @@ impl ThrustedObj {
             thruster,
         }
     }
-    /// Update physics of object
-    pub fn update(&mut self) {
+}
+
+impl AsObject for ThrustedObj {
+    fn as_obj(&self) -> &Object {
+        &self.obj
+    }
+    fn as_obj_mut(&mut self) -> &mut Object {
+        &mut self.obj
+    }
+    fn update(&mut self) {
         if self.thruster.power {
             self.acc = self.thruster.burn() * angle_to_vec(self.rot);
         } else {
@@ -76,8 +85,7 @@ impl ThrustedObj {
         self.pos += 0.5 * self.acc * DELTA + self.vel * DELTA;
         self.vel += self.acc;
     }
-    /// Draw vectors of the velocity and acceleration from this object
-    pub fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
+    fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
         self.obj.draw_lines(ctx)?;
         let vel = self.pos+self.vel;
 

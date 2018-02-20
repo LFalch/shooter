@@ -5,9 +5,85 @@ use self_compare::SliceCompareExt;
 /// All the objects in the current world
 pub struct World {
     pub(super) player: ThrustedObj,
-    pub(super) asteroids: Vec<DestructableObj>,
-    pub(super) fuels: Vec<Object>,
-    pub(super) bullets: Vec<Object>,
+    pub(super) asteroids: Objects<DestructableObj>,
+    pub(super) fuels: Objects<Object>,
+    pub(super) bullets: Objects<Object>,
+}
+
+use std::ops::{Deref, DerefMut};
+
+#[derive(Debug, Serialize, Deserialize)]
+/// A collection of objects with the same sprite face
+pub struct Objects<T: AsObject> {
+    inner: Vec<T>,
+    sprite: Sprite,
+}
+
+impl<T: AsObject> Objects<T> {
+    #[inline]
+    /// Create new instance
+    pub fn new(v: Vec<T>, sprite: Sprite) -> Self {
+        Objects {
+            inner: v,
+            sprite
+        }
+    }
+    /// Draw all objects
+    #[inline]
+    pub fn draw(&self, ctx: &mut Context, assets: &Assets) -> GameResult<()> {
+        for obj in &self.inner {
+            obj.as_obj().draw(ctx, assets.get_img(self.sprite))?;
+        }
+        Ok(())
+    }
+    /// Draw lines of all objects
+    #[inline]
+    pub fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
+        for obj in &self.inner {
+            obj.draw_lines(ctx)?;
+        }
+        Ok(())
+    }
+    #[inline]
+    /// Hanldes collision of objects in the collection with each other
+    fn self_collision(&mut self) {
+        self.inner.compare_self_mut(|a, b| check_and_resolve(a.as_obj_mut(), b.as_obj_mut()));
+    }
+    #[inline]
+    /// Update, compare and remove spat out indices
+    fn iterate_rmv_indices<F: FnMut(&mut T) -> bool>(&mut self, mut f: F) -> usize {
+        let mut to_remove = Vec::new();
+        for (i, obj) in self.inner.iter_mut().enumerate().rev() {
+            if f(obj) {
+                to_remove.push(i);
+            }
+        }
+        let len = to_remove.len();
+        for i in to_remove {
+            self.inner.remove(i);
+        }
+        len
+    }
+    /// Update and compare
+    fn iterate<F: FnMut(&mut T)>(&mut self, mut f: F) {
+        for obj in &mut self.inner {
+            f(obj)
+        }
+    }
+}
+
+impl<T: AsObject> Deref for Objects<T> {
+    type Target = Vec<T>;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+impl<T: AsObject> DerefMut for Objects<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 // Collision detection commands
@@ -17,7 +93,6 @@ fn check_and_resolve(o1: &mut Object, o2: &mut Object) {
         resolve(o1, o2);
     }
 }
-
 fn resolve(o1: &mut Object, o2: &mut Object) {
     o1.uncollide(o2);
     o1.elastic_collide(o2);
@@ -25,62 +100,66 @@ fn resolve(o1: &mut Object, o2: &mut Object) {
 
 impl World {
     pub(super) fn physics_update(&mut self, input_state: &InputState) {
-        self.player.obj.rot += 1.7 * input_state.hor() * DELTA;
+        let &mut World {
+            ref mut player,
+            ref mut asteroids,
+            ref mut fuels,
+            ref mut bullets,
+        } = self;
+        player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
-        self.player.update();
+        player.update();
 
-        self.player.thruster.power = input_state.ver() == 1.;
-        self.player.thruster.throttle(input_state.throttle() as f64 * 4.5 * DDELTA);
+        player.thruster.power = input_state.ver() == 1.;
+        player.thruster.throttle(input_state.throttle() as f64 * 17. * DDELTA);
 
-        let mut consumed_fuel = Vec::new();
-        for (i, fuel) in self.fuels.iter_mut().enumerate().rev() {
-            fuel.update(DELTA);
-            if self.player.collides(&fuel) {
-                if (fuel.vel - self.player.vel).norm() <= 30. {
-                    consumed_fuel.push(i);
+        let consumed_fuel = fuels.iterate_rmv_indices(|fuel| {
+            player.update();
+            if player.collides(&fuel) {
+                if (fuel.vel - player.vel).norm() <= 30. {
+                    true
                 } else {
-                    resolve(&mut self.player, fuel);
+                    resolve(player, fuel);
+                    false
                 }
-            }
-        }
-        self.player.thruster.fuel += 200. * consumed_fuel.len() as f64;
-        for i in consumed_fuel.into_iter() {
-            self.fuels.remove(i);
-        }
-        for ast in &mut self.asteroids {
-            ast.update(DELTA);
-            check_and_resolve(&mut self.player, ast);
-        }
-        let mut dead_bullets = Vec::new();
-        for (i, bullet) in self.bullets.iter_mut().enumerate().rev() {
-            bullet.update(DELTA);
-            if self.player.collides(&bullet) {
-                self.player.hit(5.);
-                dead_bullets.push(i);
             } else {
-                for ast in &mut self.asteroids {
+                false
+            }
+        });
+        player.thruster.fuel += 200. * consumed_fuel as f64;
+        asteroids.iterate(|ast| {
+            ast.update();
+            check_and_resolve(player, ast);
+        });
+
+        bullets.iterate_rmv_indices(|bullet| {
+            bullet.update();
+            if player.collides(&bullet) {
+                player.hit(5.);
+                true
+            } else {
+                for ast in asteroids.iter_mut() {
                     if ast.collides(&bullet) {
                         ast.hit(5.);
-                        dead_bullets.push(i);
+                        return true;
                     }
                 }
+                false
             }
-        }
-        self.asteroids.retain(|ast| !ast.is_dead());
-        for i in dead_bullets.into_iter() {
-            self.bullets.remove(i);
-        }
-        self.bullets.compare_self_mut(check_and_resolve);
+        });
+        asteroids.retain(|ast| !ast.is_dead());
 
-        self.asteroids.compare_self_mut(|a, b| check_and_resolve(a, b));
-        self.fuels.compare_self_mut(check_and_resolve);
-        for fuel in &mut self.fuels {
-            for ast in &mut self.asteroids {
+        bullets.self_collision();
+        asteroids.self_collision();
+        fuels.self_collision();
+
+        fuels.iterate(|fuel| {
+            asteroids.iterate(|ast| {
                 check_and_resolve(fuel, ast);
-            }
-            for bul in &mut self.bullets {
+            });
+            bullets.iterate(|bul| {
                 check_and_resolve(fuel, bul);
-            }
-        }
+            });
+        });
     }
 }

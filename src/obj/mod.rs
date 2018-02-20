@@ -1,12 +1,13 @@
 pub(super) mod phys;
 
 use std::f32::consts::PI;
+use std::ops::{Deref, DerefMut};
 
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Point2, Vector2, Image};
 use ggez::nalgebra as na;
 
-use GREEN;
+use {GREEN, DELTA};
 
 #[derive(Debug, Serialize, Deserialize)]
 /// A simple object that can be drawn to the screen
@@ -76,8 +77,8 @@ impl Object {
         oth.pos = center - diff;
     }
     /// Update its position and velocity using basic physics
-    pub fn update(&mut self, dt: f32) {
-        self.pos += self.vel * dt;
+    pub fn update(&mut self) {
+        self.pos += self.vel * DELTA;
     }
     /// Realistic elastic collision
     pub fn elastic_collide(&mut self, oth: &mut Self) -> (Vector2, Vector2) {
@@ -99,5 +100,41 @@ impl Object {
         oth.vel -= vel2_diff;
 
         (vel1_diff, vel2_diff)
+    }
+}
+
+/// Trait for structs that can be used as `Objects`
+pub trait AsObject {
+    /// Imutable reference
+    fn as_obj(&self) -> &Object;
+    /// Mutable reference
+    fn as_obj_mut(&mut self) -> &mut Object;
+    #[inline]
+    /// Update physics of object
+    fn update(&mut self) {
+        self.as_obj_mut().update();
+    }
+    #[inline]
+    /// Draw vectors of the velocity and acceleration from this object
+    fn draw_lines(&self, ctx: &mut Context) -> GameResult<()> {
+        self.as_obj().draw_lines(ctx)
+    }
+}
+
+impl AsObject for Object {
+    fn as_obj(&self) -> &Self {
+        self
+    }
+    fn as_obj_mut(&mut self) -> &mut Self {
+        self
+    }
+}
+
+impl<T: Deref<Target=Object> + DerefMut> AsObject for T {
+    fn as_obj(&self) -> &Object {
+        self
+    }
+    fn as_obj_mut(&mut self) -> &mut Object {
+        self
     }
 }

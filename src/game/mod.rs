@@ -58,12 +58,12 @@ impl State {
             mouse: Point2::new(0., 0.),
             offset: Vector2::new(0., 0.),
             world: World {
-                bullets: Vec::new(),
+                bullets: Objects::new(Vec::new(), Sprite::Bullet),
                 // The world starts of with one asteroid at (150, 150)
-                asteroids: vec![make_asteroid(Point2::new(150., 150.))],
+                asteroids: Objects::new(vec![make_asteroid(Point2::new(150., 150.))], Sprite::Asteroid),
                 // Initalise the player in the middle of the screen
                 player: make_player(Point2::new(width as f32 / 2., height as f32 / 2.)),
-                fuels: Vec::new(),
+                fuels: Objects::new(Vec::new(), Sprite::Fuel),
             }
         })
     }
@@ -143,27 +143,15 @@ impl EventHandler for State {
         // Draw player and asteroids
         let s = self.world.player.thruster.sprite();
         self.world.player.draw(ctx, self.assets.get_img(s))?;
-        for ast in &self.world.asteroids {
-            ast.draw(ctx, self.assets.get_img(Sprite::Asteroid))?;
-        }
-        for fuel in &self.world.fuels {
-            fuel.draw(ctx, self.assets.get_img(Sprite::Fuel))?;
-        }
-        for bullet in &self.world.bullets {
-            bullet.draw(ctx, self.assets.get_img(Sprite::Bullet))?;
-        }
+        self.world.asteroids.draw(ctx, &self.assets)?;
+        self.world.fuels.draw(ctx, &self.assets)?;
+        self.world.bullets.draw(ctx, &self.assets)?;
 
         // If lines is turned on, draw lines for the velocity and acceleration vectors from the objects
         if self.lines {
-            for ast in &self.world.asteroids {
-                ast.draw_lines(ctx)?;
-            }
-            for fuel in &self.world.fuels {
-                fuel.draw_lines(ctx)?;
-            }
-            for bullet in &self.world.bullets {
-                bullet.draw_lines(ctx)?;
-            }
+            self.world.asteroids.draw_lines(ctx)?;
+            self.world.fuels.draw_lines(ctx)?;
+            self.world.bullets.draw_lines(ctx)?;
             self.world.player.draw_lines(ctx)?;
         }
 
