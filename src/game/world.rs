@@ -13,14 +13,14 @@ pub struct World {
 // Collision detection commands
 #[inline]
 fn check_and_resolve(o1: &mut Object, o2: &mut Object) {
-    o1.uncollide(o2);
-    o1.elastic_collide(o2);
+    if o1.collides(&o2) {
+        resolve(o1, o2);
+    }
 }
 
 fn resolve(o1: &mut Object, o2: &mut Object) {
-    if o1.collides(&o2) {
-        check_and_resolve(o1, o2);
-    }
+    o1.uncollide(o2);
+    o1.elastic_collide(o2);
 }
 
 impl World {
