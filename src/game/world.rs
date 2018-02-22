@@ -106,15 +106,16 @@ impl World {
             ref mut fuels,
             ref mut bullets,
         } = self;
-        player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
-        player.update();
+        player.obj.rot += 1.7 * input_state.hor() * DELTA;
 
         player.thruster.power = input_state.ver() == 1.;
         player.thruster.throttle(input_state.throttle() as f64 * 17. * DDELTA);
 
+        player.update();
+
         let consumed_fuel = fuels.iterate_rmv_indices(|fuel| {
-            player.update();
+            fuel.update();
             if player.collides(&fuel) {
                 if (fuel.vel - player.vel).norm() <= 30. {
                     true
